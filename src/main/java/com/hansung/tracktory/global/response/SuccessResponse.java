@@ -37,6 +37,10 @@ public class SuccessResponse<T> extends BaseResponse {
         return new SuccessResponse<>(data, SuccessResponseCode.SUCCESS_CREATED);
     }
 
+    public static <T> SuccessResponse<T> noContent() {
+        return new SuccessResponse<>(null, SuccessResponseCode.SUCCESS_NO_CONTENT);
+    }
+
     public static <T> SuccessResponse<T> of(T data, BaseResponseCode baseResponseCode) {
         return new SuccessResponse<>(data, baseResponseCode);
     }
