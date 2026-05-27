@@ -1,0 +1,12 @@
+name: 🍀 기타
+description: feat / fix / refactor / docs / chore 어디에도 해당하지 않는 기타 이슈를 자유롭게 등록합니다.
+title: "🍀 Other: "
+labels: ["other"]
+body:
+  - type: textarea
+    id: content
+    attributes:
+      label: 📌 내용
+      placeholder: 이슈 내용을 자유롭게 작성해주세요.
+    validations:
+      required: true
