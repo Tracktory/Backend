@@ -8,8 +8,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -23,6 +26,7 @@ import java.io.IOException;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtil jwtUtil;
+    private final UserDetailsService userDetailsService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -36,15 +40,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Long userId = jwtUtil.extractUserId(token);
 
                 if (jwtUtil.isTokenValid(token, email)) {
-                    UserPrincipal principal = UserPrincipal.of(userId, email);
+                    UserPrincipal principal = (UserPrincipal) userDetailsService.loadUserByUsername(email);
+                    if (!principal.getUserId().equals(userId)) {
+                        throw new AuthenticationServiceException("Token userId does not match user details");
+                    }
+
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     principal, null, principal.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
-            } catch (JwtException | IllegalArgumentException e) {
-                log.debug("JWT 검증 실패", e);
+            } catch (JwtException | IllegalArgumentException | AuthenticationException e) {
+                log.debug("JWT validation failed", e);
             }
         }
 
