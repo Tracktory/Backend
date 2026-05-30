@@ -38,3 +38,14 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Harness / AI 작업 환경 ###
+# 개인 비공개 컨텍스트 (팀 공유 X)
+CLAUDE.local.md
+# Claude Code worktree 산출물 / OMC 런타임 상태
+.claude/worktrees/
+.omc/
+# Claude Code 로컬 전용 — 팀 공유 X
+.claude/settings.local.json
+# 개인 비공개 문서 - 하네스 / 실수 로그 / 룰 가이드 / 개인 hook
+local-docs/
