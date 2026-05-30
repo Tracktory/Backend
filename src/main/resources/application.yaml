@@ -21,3 +21,8 @@ spring:
       hibernate:
         format_sql: true
         use_sql_comments: true
+
+  # JWT
+  jwt:
+    secret: ${JWT_SECRET}
+    expiration: ${JWT_EXPIRATION}
