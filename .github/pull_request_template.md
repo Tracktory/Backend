@@ -21,9 +21,11 @@
 ## 📸 스크린샷
 
 ## ✅ 체크리스트
-- [ ] 코드가 컴파일 및 빌드됨
-- [ ] 모든 테스트가 통과함
-- [ ] 관련 문서가 업데이트됨
-- [ ] 커밋 메시지를 확인함
+- [ ] `./gradlew spotlessApply` 로 포매팅 적용
+- [ ] `./gradlew spotlessCheck` 통과
+- [ ] `./gradlew checkstyleMain checkstyleTest` 통과
+- [ ] `./gradlew build` 성공
+- [ ] `./gradlew test` 모든 테스트 통과
+- [ ] 관련 문서 업데이트 / 커밋 메시지 컨벤션 확인
 
 ---

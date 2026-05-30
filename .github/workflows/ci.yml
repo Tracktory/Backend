@@ -28,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Spotless ratchetFrom 'origin/develop' 이 비교 base 히스토리 필요
 
       - name: Set up Temurin JDK
         uses: actions/setup-java@v4
@@ -40,6 +42,15 @@ jobs:
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew   # gradlew 실행 권한 부여(권한 문제 예방)
+
+      - name: Spotless check # 포매팅 게이트 (변경 파일 한정 — ratchetFrom)
+        run: ./gradlew spotlessCheck --no-daemon
+
+      - name: Checkstyle # 코드 스타일 검사 (리포트 — 빌드 비차단)
+        run: ./gradlew checkstyleMain checkstyleTest --no-daemon
+
+      - name: Test # 단위/통합 테스트 게이트
+        run: ./gradlew test --no-daemon
 
       - name: Build JAR
         run: ./gradlew bootJar -x test --no-daemon # 테스트 건너뛰고 배포용 JAR 빌드
