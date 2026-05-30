@@ -72,5 +72,32 @@ EOF
   fi
 fi
 
+# Pattern 4: gh api repos/{owner}/{repo}/branches/{name}/rename — PR head ref 보존 미보장
+# 2026-05-30 사고: PR #8 의 head 브랜치를 슬래시 포함 새 이름으로 rename 했을 때
+# GitHub REST 가 PR head ref 를 보존하지 못해 PR 이 자동 close 됨.
+# 정규식은 real API 호출의 전체 path 구조(repos/<owner>/<repo>/branches/<name>/rename)
+# 를 요구해 documentation 인용("branches/.../rename" 같은 약식)을 false-positive 회피.
+if echo "$COMMAND" | grep -qE 'gh[[:space:]]+api[[:space:]]+[^|;]*repos/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/branches/[A-Za-z0-9_./-]+/rename'; then
+  if [[ "${HARNESS_ALLOW_BRANCH_RENAME:-0}" != "1" ]]; then
+    cat >&2 << 'EOF'
+🛑 차단됨: gh api branches/.../rename — PR head ref 보존 미보장
+
+GitHub REST `branches/{branch}/rename` 는 문서상 open PR 의 head ref 자동 retarget 을
+명시하지만, 슬래시 포함 브랜치명 등에서 PR 이 영구 CLOSED 처리되는 사례 발생
+(2026-05-30, PR #8 — mistakes-log 사례 1 참조).
+
+대안 (PR 가 열려 있을 때):
+  1. PR 을 base 에 머지 → 브랜치 자연 소멸 → 다음 브랜치는 컨벤션 맞춰 새로 따기
+  2. 또는 GitHub UI 의 "Rename branch" 기능 사용 (UI 경로는 PR 보존 신뢰성 높음)
+  3. 또는 정 필요하면: 새 브랜치 push + 옛 브랜치 PR 명시 close + 새 PR 발행
+     (모두 사용자 명시 동의 후, 슬래시 트리거 경유)
+
+우회 (사용자 직접 동의 시):
+  HARNESS_ALLOW_BRANCH_RENAME=1 gh api ...branches/.../rename
+EOF
+    exit 2
+  fi
+fi
+
 # 통과
 exit 0
