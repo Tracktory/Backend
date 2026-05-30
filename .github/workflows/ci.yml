@@ -25,6 +25,22 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
 
+    # 테스트용 사이드카 MySQL — 로컬 compose.yaml 과 동일 스펙 (mysql:8.4 / root / 1234 / tracktory).
+    # 본 시크릿은 운영 자산이 아니라 dev/test 더미 — 평문 노출 OK.
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: "1234"
+          MYSQL_DATABASE: tracktory
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -uroot -p1234"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,7 +65,14 @@ jobs:
       - name: Checkstyle # 코드 스타일 검사 (리포트 — 빌드 비차단)
         run: ./gradlew checkstyleMain checkstyleTest --no-daemon
 
-      - name: Test # 단위/통합 테스트 게이트
+      - name: Test # 단위/통합 테스트 게이트 (사이드카 MySQL + 더미 JWT 시크릿 주입)
+        env:
+          DATABASE_URL: jdbc:mysql://localhost:3306/tracktory
+          DATABASE_USERNAME: root
+          DATABASE_PASSWORD: "1234"
+          # 테스트 전용 더미 JWT 시크릿 (base64, 32+ bytes). 운영 시크릿 아님.
+          JWT_SECRET: dGVzdC1zZWNyZXQta2V5LWZvci1qd3QtdGVzdHMtbXVzdC1iZS0yNTYtYml0cy1taW4= # gitleaks:allow
+          JWT_EXPIRATION: 3600000
         run: ./gradlew test --no-daemon
 
       - name: Build JAR
