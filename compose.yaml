@@ -1,0 +1,27 @@
+# 로컬 dev 인프라 (MySQL 만 — 앱은 ./gradlew bootRun)
+# 사용:
+#   docker compose up -d mysql       # 데몬 기동
+#   docker compose down              # 종료 (볼륨 보존)
+#   docker compose down -v           # 볼륨까지 삭제
+#
+# brew 의 mysql@8.4 와 3306 충돌하면 먼저: brew services stop mysql@8.4
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: tracktory-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: "1234"
+      MYSQL_DATABASE: tracktory
+    ports:
+      - "3306:3306"
+    volumes:
+      - tracktory-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p1234"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  tracktory-mysql-data:

@@ -1,3 +1,6 @@
 /gradlew text eol=lf
 *.bat text eol=crlf
 *.jar binary
+
+# Lock 파일 손상 방지 — merge 충돌 시 binary 처리로 강제 (양쪽 변경을 사람이 lock 재생성으로 해결)
+gradle.lockfile merge=binary

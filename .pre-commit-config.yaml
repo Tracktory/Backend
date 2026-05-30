@@ -1,0 +1,37 @@
+# pre-commit hook 설정
+#
+# 본 파일은 core 골격(gitleaks) + lang/java-spring hook(spotless / checkstyle) 머지 결과.
+#
+# 설치:
+#   pre-commit install      # 최초 1회 (Python 3 + pre-commit framework 필요)
+# 수동 실행:
+#   pre-commit run --all-files
+
+repos:
+  # 🔒 시크릿 스캐닝 — AI가 .env 값을 코드에 인라인 박는 사고 방지 (2025+ 급증)
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.21.2
+    hooks:
+      - id: gitleaks
+
+  # ☕ Java/Spring: spotless (Google Java Format + import 정렬 통합)
+  - repo: local
+    hooks:
+      - id: spotless-check
+        name: spotless check
+        entry: ./gradlew spotlessCheck
+        language: system
+        files: \.(java|kt|gradle)$
+        pass_filenames: false
+
+  # ☕ Java/Spring: checkstyle
+  - repo: local
+    hooks:
+      - id: checkstyle
+        name: checkstyle
+        entry: ./gradlew checkstyleMain checkstyleTest
+        language: system
+        files: \.java$
+        pass_filenames: false
+
+  # === LANG_HOOKS_HERE ===

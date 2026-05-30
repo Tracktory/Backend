@@ -1,0 +1,83 @@
+{
+  "_comment": "harness-template core + lang/java-spring permissions 머지 결과. 재적용 시 /apply-harness 가 permissions.allow 에 set-union 머지.",
+
+  "permissions": {
+    "allow": [
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git restore*)",
+      "Bash(git stash*)",
+      "Bash(git checkout*)",
+      "Bash(ls*)",
+      "Bash(pwd)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(find *)",
+      "Bash(rg *)",
+      "Bash(gh issue list*)",
+      "Bash(gh issue view*)",
+      "Bash(gh pr view*)",
+      "Bash(gh pr list*)",
+      "Bash(gh pr diff*)",
+      "Bash(gh repo view*)",
+      "Bash(./gradlew *)",
+      "Bash(gradle *)",
+      "Bash(mvn *)",
+      "Bash(./mvnw *)",
+      "Bash(java -version)",
+      "Bash(java -jar *)",
+      "Bash(javac *)",
+      "Bash(jenv *)",
+      "Bash(sdk *)",
+      "Bash(pre-commit *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.production)",
+      "Read(**/secrets/**)",
+      "Read(**/credentials/**)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/application-secret.yaml)",
+      "Bash(rm -rf*)",
+      "Bash(curl *)",
+      "Bash(wget *)"
+    ]
+  },
+
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/block-pr-create.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/session-start-context.sh",
+            "statusMessage": "프로젝트 컨텍스트 로드 중..."
+          }
+        ]
+      }
+    ]
+  }
+}

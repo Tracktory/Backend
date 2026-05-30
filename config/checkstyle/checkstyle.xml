@@ -1,0 +1,71 @@
+<?xml version="1.0"?>
+<!--
+  Checkstyle 베이스 설정 — harness-template lang/java-spring
+  ADD-only — 기존 config/checkstyle/checkstyle.xml 있으면 SKIP
+  Google Java Style 기반에서 일부 완화
+-->
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<module name="Checker">
+  <property name="charset" value="UTF-8"/>
+  <property name="severity" value="warning"/>
+  <property name="fileExtensions" value="java, properties, xml"/>
+
+  <!-- 라인 길이 -->
+  <module name="LineLength">
+    <property name="max" value="120"/>
+    <property name="ignorePattern" value="^package.*|^import.*|a href|href|http://|https://|ftp://"/>
+  </module>
+
+  <!-- 파일 끝 개행 -->
+  <module name="NewlineAtEndOfFile"/>
+
+  <!-- TreeWalker -->
+  <module name="TreeWalker">
+    <!-- import 정렬 -->
+    <module name="UnusedImports"/>
+    <module name="RedundantImport"/>
+    <module name="AvoidStarImport"/>
+
+    <!-- 네이밍 -->
+    <module name="PackageName">
+      <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+    </module>
+    <module name="TypeName"/>
+    <module name="MethodName"/>
+    <module name="ConstantName"/>
+    <module name="LocalVariableName"/>
+    <module name="MemberName"/>
+
+    <!-- 공백 -->
+    <module name="WhitespaceAround"/>
+    <module name="WhitespaceAfter"/>
+    <module name="NoWhitespaceBefore"/>
+
+    <!-- 중괄호 -->
+    <module name="LeftCurly"/>
+    <module name="RightCurly"/>
+    <module name="NeedBraces"/>
+
+    <!-- 코드 스멜 -->
+    <module name="EmptyBlock"/>
+    <module name="EmptyStatement"/>
+    <module name="MissingSwitchDefault"/>
+    <module name="FallThrough"/>
+    <module name="SimplifyBooleanExpression"/>
+    <module name="SimplifyBooleanReturn"/>
+
+    <!-- 가시성 (필드는 private 또는 public final) -->
+    <module name="VisibilityModifier">
+      <property name="protectedAllowed" value="true"/>
+      <property name="allowPublicFinalFields" value="true"/>
+    </module>
+
+    <!-- 매직 넘버 (테스트는 면제) -->
+    <module name="MagicNumber">
+      <property name="ignoreNumbers" value="-1, 0, 1, 2"/>
+    </module>
+  </module>
+</module>
