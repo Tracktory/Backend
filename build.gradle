@@ -1,7 +1,9 @@
 plugins {
 	id 'java'
+	id 'checkstyle'
 	id 'org.springframework.boot' version '4.0.6'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.diffplug.spotless' version '8.4.0'
 }
 
 group = 'com.hansung'
@@ -15,6 +17,35 @@ java {
 
 repositories {
 	mavenCentral()
+}
+
+// === harness: 포매팅 게이트 (Spotless, Google Java Format) ===
+// ratchetFrom 으로 이번 브랜치에서 변경한 파일만 검사 — 기존 코드 일괄 재포맷 방지.
+// 기준은 통합 브랜치(develop). develop 에 이미 있는 코드는 grandfather, 새 작업만 포매팅 강제.
+spotless {
+	ratchetFrom 'origin/develop'
+	java {
+		googleJavaFormat()
+		removeUnusedImports()
+		formatAnnotations()
+		trimTrailingWhitespace()
+		endWithNewline()
+	}
+}
+
+// === harness: 코드 스타일 검사 (Checkstyle) ===
+// checkstyle.xml 이 severity=warning 기준이라 빌드를 막지 않고 리포트만 생성.
+checkstyle {
+	toolVersion = '10.21.4'
+	configFile = file("$rootDir/config/checkstyle/checkstyle.xml")
+	ignoreFailures = true
+	maxWarnings = Integer.MAX_VALUE
+}
+
+// === harness: 의존성 잠금 (재현 가능한 빌드) ===
+// 갱신: ./gradlew dependencies --write-locks
+dependencyLocking {
+	lockAllConfigurations()
 }
 
 dependencies {
