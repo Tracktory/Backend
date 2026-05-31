@@ -19,8 +19,8 @@ repos:
     hooks:
       - id: spotless-check
         name: spotless check
-        entry: ./gradlew spotlessCheck
-        language: system
+        entry: python config/hooks/gradlew_task.py spotlessCheck
+        language: python
         files: \.(java|kt|gradle)$
         pass_filenames: false
 
@@ -29,8 +29,8 @@ repos:
     hooks:
       - id: checkstyle
         name: checkstyle
-        entry: ./gradlew checkstyleMain checkstyleTest
-        language: system
+        entry: python config/hooks/gradlew_task.py checkstyleMain checkstyleTest
+        language: python
         files: \.java$
         pass_filenames: false
 
