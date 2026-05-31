@@ -9,6 +9,7 @@ import static org.mockito.Mockito.mock;
 import com.hansung.tracktory.domain.catalog.curriculum.entity.Subject;
 import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectRepository;
 import com.hansung.tracktory.domain.profile.dto.CompletedSubjectAddRequest;
+import com.hansung.tracktory.domain.profile.dto.CompletedSubjectDeleteResponse;
 import com.hansung.tracktory.domain.profile.dto.CompletedSubjectResponse;
 import com.hansung.tracktory.domain.profile.entity.UserCompletedSubject;
 import com.hansung.tracktory.domain.profile.repository.UserCompletedSubjectRepository;
@@ -79,6 +80,27 @@ class CompletedSubjectServiceTest {
             e ->
                 assertThat(((BusinessException) e).getErrorCode())
                     .isEqualTo(ErrorCode.SUBJECT_ALREADY_COMPLETED));
+  }
+
+  @Test
+  void delete_success_returnsDeletedId() { // 정상 삭제 시 삭제된 row id 반환
+    given(userCompletedSubjectRepository.deleteByUserIdAndId(1L, 87L)).willReturn(1L);
+
+    CompletedSubjectDeleteResponse result = service.delete(1L, 87L);
+
+    assertThat(result.deletedId()).isEqualTo(87L);
+  }
+
+  @Test
+  void delete_notFound_throws404() { // 해당 row 없음(또는 타 사용자 소유)이면 404
+    given(userCompletedSubjectRepository.deleteByUserIdAndId(1L, 99L)).willReturn(0L);
+
+    assertThatThrownBy(() -> service.delete(1L, 99L))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND));
   }
 
   // ------------------------------ helpers ------------------------------
