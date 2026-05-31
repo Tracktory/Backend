@@ -49,4 +49,12 @@ public class UserProfile extends BaseEntity {
         .name(name)
         .build();
   }
+
+  public void updateCurrentYear(Integer currentYear) {
+    this.currentYear = currentYear;
+  }
+
+  public void updateName(String name) {
+    this.name = name;
+  }
 }
