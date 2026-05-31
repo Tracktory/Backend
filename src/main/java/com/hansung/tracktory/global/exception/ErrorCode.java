@@ -14,6 +14,7 @@ public enum ErrorCode {
   RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 리소스를 찾을 수 없습니다."),
   VALIDATION_FAILED(HttpStatus.UNPROCESSABLE_ENTITY, "요청 형식이 올바르지 않습니다."),
   ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 온보딩이 완료된 사용자입니다."),
+  SUBJECT_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 이수 처리된 과목입니다."),
   ONBOARDING_NOT_FOUND(HttpStatus.NOT_FOUND, "온보딩 정보를 찾을 수 없습니다. 먼저 온보딩을 완료해주세요."),
   AI_RELAY_ERROR(HttpStatus.BAD_GATEWAY, "추천 생성 중 AI 서버 오류가 발생했습니다.");
 
