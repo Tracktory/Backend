@@ -1,9 +1,16 @@
 package com.hansung.tracktory.domain.auth.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verify;
+
 import com.hansung.tracktory.domain.auth.dto.LoginRequest;
 import com.hansung.tracktory.domain.auth.dto.LoginResponse;
 import com.hansung.tracktory.domain.auth.dto.SignupRequest;
 import com.hansung.tracktory.domain.auth.dto.SignupResponse;
+import com.hansung.tracktory.domain.profile.repository.UserProfileRepository;
 import com.hansung.tracktory.domain.user.entity.User;
 import com.hansung.tracktory.domain.user.repository.UserRepository;
 import com.hansung.tracktory.domain.user.service.UserPrincipal;
@@ -23,125 +30,146 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.verify;
-
 @ExtendWith(MockitoExtension.class)
 class AuthServiceTest {
 
-    @InjectMocks
-    private AuthService authService;
+  @InjectMocks private AuthService authService;
 
-    @Mock private UserRepository userRepository;
-    @Mock private PasswordEncoder passwordEncoder;
-    @Mock private JwtUtil jwtUtil;
-    @Mock private AuthenticationManager authenticationManager;
+  @Mock private UserRepository userRepository;
+  @Mock private UserProfileRepository userProfileRepository;
+  @Mock private PasswordEncoder passwordEncoder;
+  @Mock private JwtUtil jwtUtil;
+  @Mock private AuthenticationManager authenticationManager;
 
-    @Test
-    void signup_success() {
-        given(userRepository.existsByEmail("a@b.com")).willReturn(false);
-        given(passwordEncoder.encode("password1")).willReturn("hashed");
-        given(userRepository.save(any(User.class)))
-                .willReturn(User.builder().email("a@b.com").passwordHash("hashed").build());
-        given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
+  @Test
+  void signup_success() {
+    given(userRepository.existsByEmail("a@b.com")).willReturn(false);
+    given(passwordEncoder.encode("password1")).willReturn("hashed");
+    given(userRepository.save(any(User.class)))
+        .willReturn(User.builder().email("a@b.com").passwordHash("hashed").build());
+    given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
 
-        SignupResponse result = authService.signup(new SignupRequest("a@b.com", "password1"));
+    SignupResponse result = authService.signup(new SignupRequest("a@b.com", "password1"));
 
-        assertThat(result.email()).isEqualTo("a@b.com");
-        assertThat(result.accessToken()).isEqualTo("token");
-        assertThat(result.tokenType()).isEqualTo("Bearer");
-    }
+    assertThat(result.email()).isEqualTo("a@b.com");
+    assertThat(result.accessToken()).isEqualTo("token");
+    assertThat(result.tokenType()).isEqualTo("Bearer");
+  }
 
-    @Test
-    void signup_normalizes_email_before_lookup_and_save() {
-        given(userRepository.existsByEmail("a@b.com")).willReturn(false);
-        given(passwordEncoder.encode("password1")).willReturn("hashed");
-        given(userRepository.save(any(User.class)))
-                .willReturn(User.builder().email("a@b.com").passwordHash("hashed").build());
-        given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
+  @Test
+  void signup_normalizes_email_before_lookup_and_save() {
+    given(userRepository.existsByEmail("a@b.com")).willReturn(false);
+    given(passwordEncoder.encode("password1")).willReturn("hashed");
+    given(userRepository.save(any(User.class)))
+        .willReturn(User.builder().email("a@b.com").passwordHash("hashed").build());
+    given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
 
-        SignupResponse result = authService.signup(new SignupRequest(" A@B.COM ", "password1"));
+    SignupResponse result = authService.signup(new SignupRequest(" A@B.COM ", "password1"));
 
-        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
-        verify(userRepository).existsByEmail("a@b.com");
-        verify(userRepository).save(userCaptor.capture());
-        assertThat(userCaptor.getValue().getEmail()).isEqualTo("a@b.com");
-        assertThat(result.email()).isEqualTo("a@b.com");
-    }
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).existsByEmail("a@b.com");
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getEmail()).isEqualTo("a@b.com");
+    assertThat(result.email()).isEqualTo("a@b.com");
+  }
 
-    @Test
-    void signup_duplicate_email_throws_business_exception() {
-        given(userRepository.existsByEmail("a@b.com")).willReturn(true);
+  @Test
+  void signup_duplicate_email_throws_business_exception() {
+    given(userRepository.existsByEmail("a@b.com")).willReturn(true);
 
-        assertThatThrownBy(() -> authService.signup(new SignupRequest("a@b.com", "password1")))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.AUTH_EMAIL_DUPLICATE));
-    }
+    assertThatThrownBy(() -> authService.signup(new SignupRequest("a@b.com", "password1")))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.AUTH_EMAIL_DUPLICATE));
+  }
 
-    @Test
-    void signup_concurrent_duplicate_email_throws_business_exception() {
-        given(userRepository.existsByEmail("a@b.com")).willReturn(false);
-        given(passwordEncoder.encode("password1")).willReturn("hashed");
-        given(userRepository.save(any(User.class))).willThrow(new DataIntegrityViolationException("duplicate"));
+  @Test
+  void signup_concurrent_duplicate_email_throws_business_exception() {
+    given(userRepository.existsByEmail("a@b.com")).willReturn(false);
+    given(passwordEncoder.encode("password1")).willReturn("hashed");
+    given(userRepository.save(any(User.class)))
+        .willThrow(new DataIntegrityViolationException("duplicate"));
 
-        assertThatThrownBy(() -> authService.signup(new SignupRequest("a@b.com", "password1")))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.AUTH_EMAIL_DUPLICATE));
-    }
+    assertThatThrownBy(() -> authService.signup(new SignupRequest("a@b.com", "password1")))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.AUTH_EMAIL_DUPLICATE));
+  }
 
-    @Test
-    void login_success() {
-        UserPrincipal principal = UserPrincipal.of(1L, "a@b.com");
-        Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-        given(authenticationManager.authenticate(any())).willReturn(auth);
-        given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
+  @Test
+  void login_success() {
+    UserPrincipal principal = UserPrincipal.of(1L, "a@b.com");
+    Authentication auth =
+        new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+    given(authenticationManager.authenticate(any())).willReturn(auth);
+    given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
+    given(userProfileRepository.existsByUserId(1L)).willReturn(true);
 
-        LoginResponse result = authService.login(new LoginRequest("a@b.com", "password1"));
+    LoginResponse result = authService.login(new LoginRequest("a@b.com", "password1"));
 
-        assertThat(result.email()).isEqualTo("a@b.com");
-        assertThat(result.accessToken()).isEqualTo("token");
-        assertThat(result.tokenType()).isEqualTo("Bearer");
-    }
+    assertThat(result.email()).isEqualTo("a@b.com");
+    assertThat(result.accessToken()).isEqualTo("token");
+    assertThat(result.tokenType()).isEqualTo("Bearer");
+    assertThat(result.onboardingCompleted()).isTrue();
+  }
 
-    @Test
-    void login_normalizes_email_before_authentication() {
-        UserPrincipal principal = UserPrincipal.of(1L, "a@b.com");
-        Authentication auth = new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
-        given(authenticationManager.authenticate(any())).willReturn(auth);
-        given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
+  @Test
+  void login_returns_onboarding_false_when_profile_absent() {
+    UserPrincipal principal = UserPrincipal.of(1L, "a@b.com");
+    Authentication auth =
+        new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+    given(authenticationManager.authenticate(any())).willReturn(auth);
+    given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
+    given(userProfileRepository.existsByUserId(1L)).willReturn(false);
 
-        authService.login(new LoginRequest(" A@B.COM ", "password1"));
+    LoginResponse result = authService.login(new LoginRequest("a@b.com", "password1"));
 
-        ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
-        verify(authenticationManager).authenticate(authCaptor.capture());
-        assertThat(authCaptor.getValue().getName()).isEqualTo("a@b.com");
-        assertThat(authCaptor.getValue().getCredentials()).isEqualTo("password1");
-    }
+    assertThat(result.onboardingCompleted()).isFalse();
+  }
 
-    @Test
-    void login_unknown_email_throws_business_exception() {
-        given(authenticationManager.authenticate(any()))
-                .willThrow(new BadCredentialsException("bad credentials"));
+  @Test
+  void login_normalizes_email_before_authentication() {
+    UserPrincipal principal = UserPrincipal.of(1L, "a@b.com");
+    Authentication auth =
+        new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities());
+    given(authenticationManager.authenticate(any())).willReturn(auth);
+    given(jwtUtil.generateToken(any(UserPrincipal.class))).willReturn("token");
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("none@b.com", "password1")))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.INVALID_CREDENTIALS));
-    }
+    authService.login(new LoginRequest(" A@B.COM ", "password1"));
 
-    @Test
-    void login_wrong_password_throws_business_exception() {
-        given(authenticationManager.authenticate(any()))
-                .willThrow(new BadCredentialsException("bad credentials"));
+    ArgumentCaptor<Authentication> authCaptor = ArgumentCaptor.forClass(Authentication.class);
+    verify(authenticationManager).authenticate(authCaptor.capture());
+    assertThat(authCaptor.getValue().getName()).isEqualTo("a@b.com");
+    assertThat(authCaptor.getValue().getCredentials()).isEqualTo("password1");
+  }
 
-        assertThatThrownBy(() -> authService.login(new LoginRequest("a@b.com", "wrongpw")))
-                .isInstanceOf(BusinessException.class)
-                .satisfies(e -> assertThat(((BusinessException) e).getErrorCode())
-                        .isEqualTo(ErrorCode.INVALID_CREDENTIALS));
-    }
+  @Test
+  void login_unknown_email_throws_business_exception() {
+    given(authenticationManager.authenticate(any()))
+        .willThrow(new BadCredentialsException("bad credentials"));
+
+    assertThatThrownBy(() -> authService.login(new LoginRequest("none@b.com", "password1")))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+  }
+
+  @Test
+  void login_wrong_password_throws_business_exception() {
+    given(authenticationManager.authenticate(any()))
+        .willThrow(new BadCredentialsException("bad credentials"));
+
+    assertThatThrownBy(() -> authService.login(new LoginRequest("a@b.com", "wrongpw")))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            e ->
+                assertThat(((BusinessException) e).getErrorCode())
+                    .isEqualTo(ErrorCode.INVALID_CREDENTIALS));
+  }
 }

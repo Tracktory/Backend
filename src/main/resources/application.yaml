@@ -22,10 +22,10 @@ spring:
         format_sql: true
         use_sql_comments: true
 
-  # JWT
-  jwt:
-    secret: ${JWT_SECRET}
-    expiration: ${JWT_EXPIRATION}
+# JWT
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION}
 
 # AI 중계 서버 (내부 통신)
 ai-relay:
@@ -41,4 +41,4 @@ logging:
 # 활성 시 애플리케이션 구동 직후 classpath 의 catalog/*.yaml|json 을 읽어 테이블에 멱등 적재.
 catalog:
   seed:
-    enabled: false
+    enabled: true
