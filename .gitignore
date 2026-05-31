@@ -49,3 +49,6 @@ CLAUDE.local.md
 .claude/settings.local.json
 # 개인 비공개 문서 - 하네스 / 실수 로그 / 룰 가이드 / 개인 hook
 local-docs/
+# Codex
+.codex/
+.agents/
