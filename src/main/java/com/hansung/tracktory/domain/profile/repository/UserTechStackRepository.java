@@ -1,6 +1,8 @@
 package com.hansung.tracktory.domain.profile.repository;
 
 import com.hansung.tracktory.domain.profile.entity.UserTechStack;
+import java.util.List;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -11,4 +13,7 @@ public interface UserTechStackRepository extends JpaRepository<UserTechStack, Lo
   @Modifying
   @Query("delete from UserTechStack e where e.user.id = :userId")
   void deleteByUserId(@Param("userId") Long userId);
+
+  @EntityGraph(attributePaths = "techStack")
+  List<UserTechStack> findByUserIdOrderByIdAsc(Long userId);
 }
