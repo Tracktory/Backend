@@ -27,6 +27,11 @@ spring:
     secret: ${JWT_SECRET}
     expiration: ${JWT_EXPIRATION}
 
+# AI 중계 서버 (내부 통신)
+ai-relay:
+  base-url: ${AI_RELAY_BASE_URL:http://localhost:8000}
+  internal-token: ${AI_INTERNAL_TOKEN}
+
 logging:
   level:
     org.springframework.security: DEBUG
