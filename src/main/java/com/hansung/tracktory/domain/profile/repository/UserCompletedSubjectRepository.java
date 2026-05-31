@@ -11,4 +11,6 @@ public interface UserCompletedSubjectRepository extends JpaRepository<UserComple
   List<UserCompletedSubject> findByUserIdOrderByYearAscSemesterAsc(Long userId);
 
   boolean existsByUserIdAndSubjectId(Long userId, Long subjectId);
+
+  long deleteByUserIdAndId(Long userId, Long id);
 }
