@@ -31,3 +31,9 @@ logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web: DEBUG
+
+# 카탈로그 기준 데이터 적재 — 최초 1회 적재 시에만 true 로 켠다(기본 비활성).
+# 활성 시 애플리케이션 구동 직후 classpath 의 catalog/*.yaml|json 을 읽어 테이블에 멱등 적재.
+catalog:
+  seed:
+    enabled: false
