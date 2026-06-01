@@ -28,11 +28,12 @@ public class CompletedSubjectService {
   public CompletedSubjectResponse add(Long userId, CompletedSubjectAddRequest request) {
     Subject subject =
         subjectRepository
-            .findById(request.getSubjectId())
+            .findByName(request.getSubjectName())
             .orElseThrow(
-                () -> new BusinessException(ErrorCode.VALIDATION_FAILED, "subjectId 가 존재하지 않습니다."));
+                () ->
+                    new BusinessException(ErrorCode.VALIDATION_FAILED, "subjectName 이 존재하지 않습니다."));
 
-    if (userCompletedSubjectRepository.existsByUserIdAndSubjectId(userId, request.getSubjectId())) {
+    if (userCompletedSubjectRepository.existsByUserIdAndSubjectId(userId, subject.getId())) {
       throw new BusinessException(ErrorCode.SUBJECT_ALREADY_COMPLETED);
     }
 

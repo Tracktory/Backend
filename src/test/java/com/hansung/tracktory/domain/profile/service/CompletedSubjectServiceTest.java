@@ -40,7 +40,7 @@ class CompletedSubjectServiceTest {
   void add_success_returnsSavedRow() { // 정상: 저장 후 id/과목/학년/학기 반환
     Subject subject = mock(Subject.class);
     given(subject.getId()).willReturn(142L);
-    given(subjectRepository.findById(142L)).willReturn(Optional.of(subject));
+    given(subjectRepository.findByName("자료구조")).willReturn(Optional.of(subject));
     given(userCompletedSubjectRepository.existsByUserIdAndSubjectId(1L, 142L)).willReturn(false);
     given(userRepository.getReferenceById(1L)).willReturn(user);
 
@@ -48,7 +48,7 @@ class CompletedSubjectServiceTest {
     ReflectionTestUtils.setField(saved, "id", 87L);
     given(userCompletedSubjectRepository.save(any())).willReturn(saved);
 
-    CompletedSubjectResponse result = service.add(1L, addRequest(142L, 2, 1));
+    CompletedSubjectResponse result = service.add(1L, addRequest("자료구조", 2, 1));
 
     assertThat(result.id()).isEqualTo(87L);
     assertThat(result.subjectId()).isEqualTo(142L);
@@ -57,10 +57,10 @@ class CompletedSubjectServiceTest {
   }
 
   @Test
-  void add_subjectNotFound_throws422() { // 없는 과목 ID면 422
-    given(subjectRepository.findById(99L)).willReturn(Optional.empty());
+  void add_subjectNotFound_throws422() { // 없는 과목 이름이면 422
+    given(subjectRepository.findByName("없는과목")).willReturn(Optional.empty());
 
-    assertThatThrownBy(() -> service.add(1L, addRequest(99L, 1, 1)))
+    assertThatThrownBy(() -> service.add(1L, addRequest("없는과목", 1, 1)))
         .isInstanceOf(BusinessException.class)
         .satisfies(
             e ->
@@ -71,10 +71,11 @@ class CompletedSubjectServiceTest {
   @Test
   void add_duplicate_throws409() { // 이미 이수한 과목이면 409
     Subject subject = mock(Subject.class);
-    given(subjectRepository.findById(142L)).willReturn(Optional.of(subject));
+    given(subject.getId()).willReturn(142L);
+    given(subjectRepository.findByName("자료구조")).willReturn(Optional.of(subject));
     given(userCompletedSubjectRepository.existsByUserIdAndSubjectId(1L, 142L)).willReturn(true);
 
-    assertThatThrownBy(() -> service.add(1L, addRequest(142L, 2, 1)))
+    assertThatThrownBy(() -> service.add(1L, addRequest("자료구조", 2, 1)))
         .isInstanceOf(BusinessException.class)
         .satisfies(
             e ->
@@ -106,9 +107,9 @@ class CompletedSubjectServiceTest {
   // ------------------------------ helpers ------------------------------
 
   private static CompletedSubjectAddRequest addRequest(
-      Long subjectId, Integer year, Integer semester) {
+      String subjectName, Integer year, Integer semester) {
     CompletedSubjectAddRequest r = new CompletedSubjectAddRequest();
-    ReflectionTestUtils.setField(r, "subjectId", subjectId);
+    ReflectionTestUtils.setField(r, "subjectName", subjectName);
     ReflectionTestUtils.setField(r, "year", year);
     ReflectionTestUtils.setField(r, "semester", semester);
     return r;
