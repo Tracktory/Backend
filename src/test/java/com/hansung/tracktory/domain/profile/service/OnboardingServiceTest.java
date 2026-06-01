@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import com.hansung.tracktory.domain.profile.dto.OnboardingRequest;
 import com.hansung.tracktory.domain.profile.dto.OnboardingResponse;
 import com.hansung.tracktory.domain.profile.repository.UserCompanyTypeRepository;
-import com.hansung.tracktory.domain.profile.repository.UserCompletedSubjectRepository;
 import com.hansung.tracktory.domain.profile.repository.UserDevFieldRepository;
 import com.hansung.tracktory.domain.profile.repository.UserInterestRepository;
 import com.hansung.tracktory.domain.profile.repository.UserProfileRepository;
@@ -44,7 +43,6 @@ class OnboardingServiceTest {
   @Mock private UserWorkValueRepository userWorkValueRepository;
   @Mock private UserTechStackRepository userTechStackRepository;
   @Mock private UserTechStackCustomRepository userTechStackCustomRepository;
-  @Mock private UserCompletedSubjectRepository userCompletedSubjectRepository;
 
   @Test
   void onboard_alreadyCompleted_throwsAndSkipsSave() { // 이미 온보딩했으면 409, 저장 안 함
@@ -72,6 +70,5 @@ class OnboardingServiceTest {
     verify(userProfileRepository).save(any());
     verify(userTrackRepository).saveAll(any());
     verify(userInterestRepository).saveAll(any());
-    verify(userCompletedSubjectRepository).saveAll(any());
   }
 }

@@ -5,17 +5,13 @@ import com.hansung.tracktory.domain.catalog.classification.repository.CompanyTyp
 import com.hansung.tracktory.domain.catalog.classification.repository.DevFieldRepository;
 import com.hansung.tracktory.domain.catalog.classification.repository.InterestRepository;
 import com.hansung.tracktory.domain.catalog.classification.repository.WorkValueRepository;
-import com.hansung.tracktory.domain.catalog.curriculum.entity.Subject;
-import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectRepository;
 import com.hansung.tracktory.domain.catalog.organization.entity.Department;
 import com.hansung.tracktory.domain.catalog.organization.entity.Track;
 import com.hansung.tracktory.domain.catalog.organization.repository.DepartmentRepository;
 import com.hansung.tracktory.domain.catalog.organization.repository.TrackRepository;
-import com.hansung.tracktory.domain.profile.dto.OnboardingRequest.CompletedSubjectRequest;
 import com.hansung.tracktory.domain.profile.dto.OnboardingRequest.ProfileRequest;
 import com.hansung.tracktory.domain.profile.dto.OnboardingRequest.TrackRequest;
 import com.hansung.tracktory.domain.profile.entity.UserCompanyType;
-import com.hansung.tracktory.domain.profile.entity.UserCompletedSubject;
 import com.hansung.tracktory.domain.profile.entity.UserDevField;
 import com.hansung.tracktory.domain.profile.entity.UserInterest;
 import com.hansung.tracktory.domain.profile.entity.UserProfile;
@@ -28,7 +24,6 @@ import com.hansung.tracktory.global.exception.BusinessException;
 import com.hansung.tracktory.global.exception.ErrorCode;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -46,7 +41,6 @@ public class ProfileAssembler {
   private final CompanyTypeRepository companyTypeRepository;
   private final WorkValueRepository workValueRepository;
   private final TechStackRepository techStackRepository;
-  private final SubjectRepository subjectRepository;
 
   public UserProfile profile(User user, ProfileRequest req) {
     Department department =
@@ -115,24 +109,6 @@ public class ProfileAssembler {
         .toList();
   }
 
-  public List<UserCompletedSubject> completedSubjects(
-      User user, List<CompletedSubjectRequest> reqs) {
-    if (reqs == null || reqs.isEmpty()) {
-      return List.of();
-    }
-    validateCompletedSubjects(reqs);
-    List<Long> subjectIds = reqs.stream().map(CompletedSubjectRequest::getSubjectId).toList();
-    Map<Long, Subject> subjectMap =
-        resolveAll(subjectRepository, subjectIds, "completedSubjects.subjectId").stream()
-            .collect(Collectors.toMap(Subject::getId, Function.identity()));
-    return reqs.stream()
-        .map(
-            r ->
-                UserCompletedSubject.of(
-                    user, subjectMap.get(r.getSubjectId()), r.getYear(), r.getSemester()))
-        .toList();
-  }
-
   // ------------------------------ 메서드 ------------------------------
 
   private void validateTrackOrders(List<TrackRequest> tracks) {
@@ -148,15 +124,6 @@ public class ProfileAssembler {
     long distinctTrackIds = tracks.stream().map(TrackRequest::getTrackId).distinct().count();
     if (distinctTrackIds != tracks.size()) {
       throw new BusinessException(ErrorCode.VALIDATION_FAILED, "tracks.trackId 가 중복되었습니다.");
-    }
-  }
-
-  private void validateCompletedSubjects(List<CompletedSubjectRequest> reqs) {
-    long distinctSubjectIds =
-        reqs.stream().map(CompletedSubjectRequest::getSubjectId).distinct().count();
-    if (distinctSubjectIds != reqs.size()) {
-      throw new BusinessException(
-          ErrorCode.VALIDATION_FAILED, "completedSubjects.subjectId 가 중복되었습니다.");
     }
   }
 

@@ -3,7 +3,6 @@ package com.hansung.tracktory.domain.profile.service;
 import com.hansung.tracktory.domain.profile.dto.OnboardingRequest;
 import com.hansung.tracktory.domain.profile.dto.OnboardingResponse;
 import com.hansung.tracktory.domain.profile.repository.UserCompanyTypeRepository;
-import com.hansung.tracktory.domain.profile.repository.UserCompletedSubjectRepository;
 import com.hansung.tracktory.domain.profile.repository.UserDevFieldRepository;
 import com.hansung.tracktory.domain.profile.repository.UserInterestRepository;
 import com.hansung.tracktory.domain.profile.repository.UserProfileRepository;
@@ -35,7 +34,6 @@ public class OnboardingService {
   private final UserWorkValueRepository userWorkValueRepository;
   private final UserTechStackRepository userTechStackRepository;
   private final UserTechStackCustomRepository userTechStackCustomRepository;
-  private final UserCompletedSubjectRepository userCompletedSubjectRepository;
 
   @Transactional
   public OnboardingResponse onboard(Long userId, OnboardingRequest request) {
@@ -55,8 +53,6 @@ public class OnboardingService {
     userTechStackRepository.saveAll(profileAssembler.techStacks(user, request.getTechStackIds()));
     userTechStackCustomRepository.saveAll(
         profileAssembler.techStackCustoms(user, request.getTechStackCustoms()));
-    userCompletedSubjectRepository.saveAll(
-        profileAssembler.completedSubjects(user, request.getCompletedSubjects()));
 
     return OnboardingResponse.completed();
   }
