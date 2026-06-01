@@ -6,13 +6,16 @@ import com.hansung.tracktory.domain.catalog.career.repository.JobTechStackReposi
 import com.hansung.tracktory.domain.catalog.curriculum.entity.Subject;
 import com.hansung.tracktory.domain.catalog.curriculum.entity.SubjectPrerequisite;
 import com.hansung.tracktory.domain.catalog.curriculum.entity.SubjectStage;
+import com.hansung.tracktory.domain.catalog.curriculum.entity.SubjectType;
 import com.hansung.tracktory.domain.catalog.curriculum.entity.TrackSubject;
 import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectPrerequisiteRepository;
 import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectRepository;
 import com.hansung.tracktory.domain.catalog.curriculum.repository.TrackSubjectRepository;
+import com.hansung.tracktory.domain.catalog.organization.entity.Track;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.CourseView;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.JobView;
+import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.MainSubjectView;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.PrerequisiteView;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.RoadmapView;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.SemesterView;
@@ -45,6 +48,9 @@ public class RecommendationAssembler {
   private static final SubjectStage[] STAGE_BY_YEAR = {
     SubjectStage.FOUNDATION, SubjectStage.CORE, SubjectStage.APPLIED, SubjectStage.INDUSTRY
   };
+
+  /** 트랙별 주요 과목으로 노출할 전공필수 과목 수. */
+  private static final int MAIN_SUBJECT_LIMIT = 3;
 
   private final SubjectRepository subjectRepository;
   private final SubjectPrerequisiteRepository subjectPrerequisiteRepository;
@@ -90,6 +96,10 @@ public class RecommendationAssembler {
   }
 
   private TrackRecommendationView tracks(Recommendation recommendation) {
+    List<Track> tracks =
+        recommendation.getRecommendedTracks().stream().map(rt -> rt.getTrack()).toList();
+    Map<Long, List<MainSubjectView>> mainSubjects = mainSubjectIndex(tracks);
+
     List<TrackView> primary = new ArrayList<>();
     List<TrackView> secondary = new ArrayList<>();
     for (RecommendedTrack rt : recommendation.getRecommendedTracks()) {
@@ -99,7 +109,8 @@ public class RecommendationAssembler {
               rt.getTrack().getName(),
               rt.getScore(),
               rt.getReasoning(),
-              rt.isPrimary());
+              rt.isPrimary(),
+              mainSubjects.getOrDefault(rt.getTrack().getId(), List.of()));
       (rt.isPrimary() ? primary : secondary).add(view);
     }
     return new TrackRecommendationView(
@@ -108,6 +119,34 @@ public class RecommendationAssembler {
         recommendation.getTrackCombinationReasoning(),
         primary,
         secondary);
+  }
+
+  private Map<Long, List<MainSubjectView>> mainSubjectIndex(List<Track> tracks) {
+    Map<Long, List<MainSubjectView>> index = new LinkedHashMap<>();
+    if (tracks.isEmpty()) {
+      return index;
+    }
+    Map<Long, List<TrackSubject>> grouped = new LinkedHashMap<>();
+    for (TrackSubject link :
+        trackSubjectRepository.findByTrackInAndType(tracks, SubjectType.REQUIRED)) {
+      grouped.computeIfAbsent(link.getTrack().getId(), k -> new ArrayList<>()).add(link);
+    }
+    Comparator<TrackSubject> byStageThenCode =
+        Comparator.comparingInt((TrackSubject ts) -> ts.getStage().ordinal())
+            .thenComparing(ts -> ts.getSubject().getCode());
+    grouped.forEach(
+        (trackId, links) ->
+            index.put(
+                trackId,
+                links.stream()
+                    .sorted(byStageThenCode)
+                    .limit(MAIN_SUBJECT_LIMIT)
+                    .map(
+                        ts ->
+                            new MainSubjectView(
+                                ts.getSubject().getCode(), ts.getSubject().getName()))
+                    .toList()));
+    return index;
   }
 
   private RoadmapView roadmap(Recommendation recommendation, OnboardingProfileSnapshot profile) {

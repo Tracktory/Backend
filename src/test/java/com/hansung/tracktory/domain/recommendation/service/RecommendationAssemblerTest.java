@@ -2,7 +2,9 @@ package com.hansung.tracktory.domain.recommendation.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
 import com.hansung.tracktory.domain.catalog.career.entity.Job;
@@ -11,15 +13,21 @@ import com.hansung.tracktory.domain.catalog.career.entity.TechStack;
 import com.hansung.tracktory.domain.catalog.career.repository.JobTechStackRepository;
 import com.hansung.tracktory.domain.catalog.curriculum.entity.Subject;
 import com.hansung.tracktory.domain.catalog.curriculum.entity.SubjectStage;
+import com.hansung.tracktory.domain.catalog.curriculum.entity.SubjectType;
+import com.hansung.tracktory.domain.catalog.curriculum.entity.TrackSubject;
 import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectPrerequisiteRepository;
 import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectRepository;
 import com.hansung.tracktory.domain.catalog.curriculum.repository.TrackSubjectRepository;
+import com.hansung.tracktory.domain.catalog.organization.entity.Track;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.JobView;
+import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.MainSubjectView;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.SemesterView;
+import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse.TrackView;
 import com.hansung.tracktory.domain.recommendation.entity.Recommendation;
 import com.hansung.tracktory.domain.recommendation.entity.RecommendationStatus;
 import com.hansung.tracktory.domain.recommendation.entity.RecommendedJob;
+import com.hansung.tracktory.domain.recommendation.entity.RecommendedTrack;
 import com.hansung.tracktory.domain.recommendation.entity.Roadmap;
 import com.hansung.tracktory.domain.recommendation.entity.RoadmapItem;
 import com.hansung.tracktory.domain.recommendation.entity.RoadmapSemester;
@@ -151,6 +159,54 @@ class RecommendationAssemblerTest {
     assertThat(view.techStacks()).containsExactly("Airflow", "Spark");
   }
 
+  @Test
+  void assemble_populatesMainSubjectsForRecommendedTracksCappedAtThree() {
+    Track track = mock(Track.class);
+    given(track.getId()).willReturn(20L);
+    given(track.getCode()).willReturn("BIGDATA");
+    given(track.getName()).willReturn("빅데이터 트랙");
+
+    Recommendation recommendation =
+        Recommendation.builder().status(RecommendationStatus.ACTIVE).build();
+    recommendation.addRecommendedTrack(
+        RecommendedTrack.builder().score(95).reasoning("이유").primary(true).track(track).build());
+
+    TrackSubject industry = trackSubject(track, "S4", "캡스톤", SubjectStage.INDUSTRY);
+    TrackSubject foundationB = trackSubject(track, "S2", "이산수학", SubjectStage.FOUNDATION);
+    TrackSubject foundationA = trackSubject(track, "S1", "프로그래밍기초", SubjectStage.FOUNDATION);
+    TrackSubject core = trackSubject(track, "S3", "데이터베이스", SubjectStage.CORE);
+    given(trackSubjectRepository.findByTrackInAndType(anyCollection(), eq(SubjectType.REQUIRED)))
+        .willReturn(List.of(industry, foundationB, foundationA, core));
+
+    OnboardingProfileSnapshot profile =
+        new OnboardingProfileSnapshot(
+            1L,
+            2023,
+            "IT공과대학",
+            "컴퓨터공학부",
+            3,
+            List.of("BIGDATA", "WEB"),
+            List.of("IT/인터넷"),
+            List.of("앱"),
+            List.of("성장성"),
+            List.of("대기업"),
+            List.of(),
+            List.of());
+
+    RecommendationResponse response = recommendationAssembler.assemble(recommendation, profile);
+
+    assertThat(response.tracks().primary()).hasSize(1);
+    TrackView view = response.tracks().primary().get(0);
+    assertThat(view.code()).isEqualTo("BIGDATA");
+    assertThat(view.primary()).isTrue();
+
+    List<MainSubjectView> mainSubjects = view.mainSubjects();
+    assertThat(mainSubjects).hasSize(3);
+    assertThat(mainSubjects).extracting(MainSubjectView::code).containsExactly("S1", "S2", "S3");
+    assertThat(mainSubjects.get(0).name()).isEqualTo("프로그래밍기초");
+    assertThat(mainSubjects.get(2).name()).isEqualTo("데이터베이스");
+  }
+
   private static Subject subject(long id, String code, String name) {
     Subject subject = mock(Subject.class);
     given(subject.getId()).willReturn(id);
@@ -165,6 +221,19 @@ class RecommendationAssemblerTest {
     JobTechStack link = mock(JobTechStack.class);
     given(link.getJob()).willReturn(job);
     given(link.getTechStack()).willReturn(techStack);
+    return link;
+  }
+
+  private static TrackSubject trackSubject(
+      Track track, String code, String name, SubjectStage stage) {
+    Subject subject = mock(Subject.class);
+    TrackSubject link = mock(TrackSubject.class);
+    // 정렬·cap(3) 결과에 따라 일부 과목의 접근자는 호출되지 않으므로 lenient 처리.
+    lenient().when(subject.getCode()).thenReturn(code);
+    lenient().when(subject.getName()).thenReturn(name);
+    lenient().when(link.getTrack()).thenReturn(track);
+    lenient().when(link.getSubject()).thenReturn(subject);
+    lenient().when(link.getStage()).thenReturn(stage);
     return link;
   }
 }

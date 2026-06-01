@@ -29,9 +29,17 @@ public record RecommendationResponse(
       List<TrackView> primary,
       List<TrackView> secondary) {}
 
-  /** 추천 트랙 한 건. {@code primary} 가 true 면 주 추천. */
+  /** 추천 트랙 한 건. {@code primary} 가 true 면 주 추천, {@code mainSubjects} 는 트랙의 주요 과목(전공필수) 목록. */
   public record TrackView(
-      String code, String name, Integer score, String reasoning, boolean primary) {}
+      String code,
+      String name,
+      Integer score,
+      String reasoning,
+      boolean primary,
+      List<MainSubjectView> mainSubjects) {}
+
+  /** 트랙의 주요 과목(전공필수) 한 건. */
+  public record MainSubjectView(String code, String name) {}
 
   /** 학습 로드맵 전체 — 학기 그룹의 순서 리스트. */
   public record RoadmapView(String reasoning, List<SemesterView> semesters) {}
