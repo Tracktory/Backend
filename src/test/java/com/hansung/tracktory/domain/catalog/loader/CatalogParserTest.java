@@ -50,6 +50,21 @@ class CatalogParserTest {
   }
 
   @Test
+  void parseCourses_선수과목코드_파싱() {
+    List<CourseRow> courses = CatalogParser.parseCourses(reader.readAsMap("catalog/courses.yaml"));
+
+    // prereq_ids 가 있는 과목은 선수 코드를 보존한다 (값은 다른 과목의 course_id).
+    CourseRow withPrereq =
+        courses.stream().filter(c -> c.code().equals("P021010")).findFirst().orElseThrow();
+    assertThat(withPrereq.prereqCodes()).containsExactly("P021004");
+
+    // prereq_ids 가 빈 과목은 빈 목록으로 파싱된다.
+    CourseRow withoutPrereq =
+        courses.stream().filter(c -> c.code().equals("CTA0001")).findFirst().orElseThrow();
+    assertThat(withoutPrereq.prereqCodes()).isEmpty();
+  }
+
+  @Test
   void parseCourses_학점은_소수1자리_BigDecimal() {
     List<CourseRow> courses = CatalogParser.parseCourses(reader.readAsMap("catalog/courses.yaml"));
 

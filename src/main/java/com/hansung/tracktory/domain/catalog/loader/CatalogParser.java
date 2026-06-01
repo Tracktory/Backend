@@ -37,7 +37,10 @@ public final class CatalogParser {
         .toList();
   }
 
-  /** courses.yaml → 과목 행 목록. stage/course_type/available_semesters 를 enum 으로 매핑. */
+  /**
+   * courses.yaml → 과목 행 목록. stage/course_type/available_semesters 를 enum 으로 매핑하고 prereq_ids 를 선수
+   * 코드로 보존.
+   */
   public static List<CourseRow> parseCourses(Map<String, Object> root) {
     return asMapList(root.get("courses")).stream()
         .map(
@@ -49,7 +52,8 @@ public final class CatalogParser {
                     toSemester(asIntList(c.get("available_semesters"))),
                     toSubjectType(asString(c.get("course_type"))),
                     toSubjectStage(asString(c.get("stage"))),
-                    asStringList(c.get("track_ids"))))
+                    asStringList(c.get("track_ids")),
+                    asStringList(c.get("prereq_ids"))))
         .toList();
   }
 
