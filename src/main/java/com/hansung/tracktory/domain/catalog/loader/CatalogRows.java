@@ -15,7 +15,10 @@ public final class CatalogRows {
   /** 트랙 한 건 — 소속 단과대/학부 이름과 AI 정합용 {@code code}. */
   public record TrackRow(String code, String collegeName, String departmentName, String name) {}
 
-  /** 과목 한 건 — 트랙 연결({@code trackCodes})과 졸업요건 유형/학습 단계 포함. */
+  /**
+   * 과목 한 건 — 트랙 연결({@code trackCodes})과 졸업요건 유형/학습 단계, 선수 과목 코드({@code prereqCodes})를 포함한다. {@code
+   * prereqCodes} 의 각 값은 다른 과목의 {@code code}(course_id) 를 가리키며, 선수 관계가 없는 과목은 빈 목록이다.
+   */
   public record CourseRow(
       String code,
       String name,
@@ -23,7 +26,8 @@ public final class CatalogRows {
       SubjectSemester semester,
       SubjectType type,
       SubjectStage stage,
-      List<String> trackCodes) {}
+      List<String> trackCodes,
+      List<String> prereqCodes) {}
 
   /** 직무가 요구하는 기술 한 건과 그 학습 단계. */
   public record TechStackRow(String name, JobTechStackStage stage) {}
