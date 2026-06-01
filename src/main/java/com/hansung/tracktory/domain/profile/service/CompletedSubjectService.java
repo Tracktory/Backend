@@ -46,11 +46,11 @@ public class CompletedSubjectService {
   }
 
   @Transactional
-  public CompletedSubjectDeleteResponse delete(Long userId, Long id) {
-    long deleted = userCompletedSubjectRepository.deleteByUserIdAndId(userId, id);
+  public CompletedSubjectDeleteResponse delete(Long userId, Long subjectId) {
+    long deleted = userCompletedSubjectRepository.deleteByUserIdAndSubjectId(userId, subjectId);
     if (deleted == 0) {
       throw new BusinessException(ErrorCode.RESOURCE_NOT_FOUND, "해당 이수 과목이 존재하지 않습니다.");
     }
-    return CompletedSubjectDeleteResponse.of(id);
+    return CompletedSubjectDeleteResponse.of(subjectId);
   }
 }

@@ -35,9 +35,9 @@ public class CompletedSubjectController {
 
   @DeleteMapping("/{id}")
   public ResponseEntity<ApiResponse<CompletedSubjectDeleteResponse>> delete(
-      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long id) {
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable("id") Long subjectId) {
     CompletedSubjectDeleteResponse response =
-        completedSubjectService.delete(principal.getUserId(), id);
+        completedSubjectService.delete(principal.getUserId(), subjectId);
     return ResponseEntity.ok(ApiResponse.ok(response));
   }
 }
