@@ -12,5 +12,5 @@ public interface UserCompletedSubjectRepository extends JpaRepository<UserComple
 
   boolean existsByUserIdAndSubjectId(Long userId, Long subjectId);
 
-  long deleteByUserIdAndId(Long userId, Long id);
+  long deleteByUserIdAndSubjectId(Long userId, Long subjectId);
 }
