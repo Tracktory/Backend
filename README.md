@@ -1,86 +1,100 @@
 # tracktory-backend
 
-tracktory 메인 백엔드 (Spring Boot 4.0.x · Java 21).
-사용자 인증·프로필·이수 과목·트랙/직무/과목 도메인을 담당하며, AI 처리는 내부 중계 서버 (FastAPI) 로 위임한다.
+[![CI](https://github.com/Tracktory/Backend/actions/workflows/ci.yml/badge.svg)](https://github.com/Tracktory/Backend/actions/workflows/ci.yml)
 
-상세 컨벤션은 [`CONTRIBUTING.md`](./CONTRIBUTING.md), AI 에이전트 컨텍스트는 [`CLAUDE.md`](./CLAUDE.md) 참조.
+tracktory 의 메인 백엔드. 모바일 앱이 직접 통신하는 **유일한** API 서버로, 인증·도메인·트랜잭션을 담당하고 AI 처리(추천·설명 생성 등)는 내부 AI 중계 서버에 위임한다.
 
----
+**Stack**: Java 21 · Spring Boot 4.x · Gradle (wrapper) · MySQL 8.4
 
-## Quick Start
+## 시스템 내 위치
 
-### 1. 사전 요구사항
+```
+React Native 앱  ──►  tracktory-backend (이 레포)  ──►  FastAPI AI 중계 서버
+                      인증 · 프로필 · 도메인 · 트랜잭션         추천 · 자연어 설명 등 AI
+```
 
-| 도구 | 버전 | 설치 |
+- 앱과 직접 통신하는 유일한 백엔드 — 인증/인가, 프로필·도메인 CRUD, 트랜잭션, API 게이트키핑.
+- AI 처리는 직접 수행하지 않고 `WebClient` 로 내부 AI 중계 서버에 위임한다.
+- 도메인별 기능 범위와 패키지 구조는 코드(`src/main/java/com/hansung/tracktory/domain/`)와 [`CLAUDE.md`](./CLAUDE.md) 의 디렉토리 구조 참조.
+
+## Getting Started
+
+### 사전 요구사항
+
+| 도구 | 버전 | 비고 |
 |---|---|---|
-| JDK | Temurin 21 | `asdf install java temurin-21.0+0` 또는 SDKMAN |
-| Gradle | wrapper 가 핀 (시스템 gradle 불필요) | — |
-| pre-commit CLI | 4.x | 아래 §2 참조 |
+| JDK | Temurin 21 | `asdf install java temurin-21.0+0` 또는 SDKMAN. Gradle 버전은 wrapper 가 핀 |
+| Docker | — | 로컬 MySQL 을 compose 로 띄운다 |
+| pre-commit | 4.x | 커밋 hook (아래 4단계) |
 
-### 2. pre-commit 설치 (최초 1회)
+### 1. Secret 설정
 
-본 레포는 [pre-commit framework](https://pre-commit.com) 으로 커밋 hook 을 관리한다.
-**도구 자체는 Python 으로 작성됐지만 검사 대상은 100% Java** — Spotless / Checkstyle / gitleaks 가 `./gradlew` 명령을 wrapping 한다.
-
-#### 2.1 CLI 설치 (둘 중 택1)
-
-**macOS (Homebrew, 권장)**:
 ```bash
-brew install pre-commit
+cp src/main/resources/application-secret.yaml.example \
+   src/main/resources/application-secret.yaml
 ```
 
-**크로스 플랫폼 (pipx)**:
+복사한 `application-secret.yaml` 을 채운다. 로컬 DB 값은 아래 compose 설정과 맞춘다:
+
+| 키 | 로컬 값 |
+|---|---|
+| `DATABASE_URL` | `jdbc:mysql://localhost:3306/tracktory` |
+| `DATABASE_USERNAME` | `root` |
+| `DATABASE_PASSWORD` | `1234` (compose 기본값) |
+| `jwt.secret` | Base64 인코딩 키 (직접 생성) |
+| `ai-relay.base-url` | AI 중계 서버 주소 (기본 `http://localhost:8000`) |
+| `ai-relay.internal-token` | AI 서버와 공유하는 내부 토큰 |
+
+> `application-secret.yaml` 은 gitignore 대상 — **커밋 금지**. 키 목록의 정본은 `*.example` 파일.
+
+### 2. 로컬 인프라 기동 (MySQL)
+
 ```bash
-pipx install pre-commit
-# pipx 가 없으면: brew install pipx 또는 python3 -m pip install --user pipx
+docker compose up -d mysql        # localhost:3306, DB=tracktory
 ```
 
-설치 확인:
-```bash
-pre-commit --version   # 4.x 출력되면 OK
-```
+> brew 의 `mysql@8.4` 와 3306 이 충돌하면: `brew services stop mysql@8.4`
 
-#### 2.2 레포에 hook 등록
+### 3. pre-commit hook 등록 (최초 1회)
 
 ```bash
+brew install pre-commit           # 또는: pipx install pre-commit
 pre-commit install
-# → .git/hooks/pre-commit 생성. 이후 git commit 시 자동 작동
 ```
 
-#### 2.3 작동 확인 (선택)
+등록되는 hook: **gitleaks**(시크릿 하드코딩 차단) · **spotless-check** · **checkstyle**.
+
+### 4. 실행
 
 ```bash
-pre-commit run --all-files   # 전체 파일 1회 검사 (Spotless 는 ratchetFrom 기준만 검사)
+./gradlew bootRun                 # http://localhost:8080
 ```
 
-등록되는 hook:
-- **gitleaks** — 시크릿 하드코딩 차단 (`.env` 값을 코드에 인라인하는 사고 방지)
-- **spotless-check** — `*.java|kt|gradle` 변경 시 Google Java Format 검증
-- **checkstyle** — `*.java` 변경 시 코드 스타일 검사
-
-### 3. 빌드 / 실행
+## Build / Test / Lint
 
 ```bash
-./gradlew build              # 컴파일 + 검사 + 테스트
-./gradlew bootRun            # 로컬 실행 (http://localhost:8080)
-./gradlew test               # 테스트만
-./gradlew spotlessApply      # 포매터 자동 수정
-./gradlew check              # 전체 게이트 (spotless + checkstyle + test)
+./gradlew build                   # 컴파일 + 검사 + 테스트
+./gradlew test                    # 테스트만
+./gradlew check                   # 전체 게이트 (spotless + checkstyle + test)
+./gradlew spotlessApply           # 포매터 자동 수정
 ```
 
----
+전체 개발 루틴·도구 체인·코드 규약은 [`CONTRIBUTING.md`](./CONTRIBUTING.md) 참조.
 
 ## 트러블슈팅
 
-### `pre-commit: command not found`
-CLI 자체 설치 누락. §2.1 참조.
+| 증상 | 해결 |
+|---|---|
+| `bootRun` 이 DB 연결 실패 | MySQL 이 떴는지(`docker compose ps`) + `application-secret.yaml` 의 `DATABASE_URL` 확인 |
+| `pre-commit: command not found` | CLI 미설치 — 위 3단계 참조 |
+| 첫 `pre-commit install` 이 느림 | gitleaks 바이너리 최초 다운로드, 1회성 |
+| Spotless 가 기존 코드에서도 실패 | `ratchetFrom 'origin/develop'` 기준이라 develop 히스토리 필요 — `git fetch origin develop` |
+| CI 에서 Spotless 단계만 실패 | 로컬 `./gradlew spotlessApply` 후 재커밋 |
 
-### `pre-commit install --install-hooks` 가 처음 실행에서 느리다
-gitleaks 바이너리를 처음 받아오기 때문. 1회만 발생.
+## 더 보기
 
-### Spotless 가 기존 코드에서도 실패한다고 외친다
-`ratchetFrom 'origin/develop'` 기준이라 develop 에 있는 코드는 grandfather 되어야 정상.
-`git fetch origin develop` 으로 base 히스토리를 받았는지 확인.
-
-### CI 에서 Spotless 단계만 빨개진다
-로컬에서 `./gradlew spotlessApply` 후 재커밋.
+| 무엇 | 어디 |
+|---|---|
+| 기여 규약 · 커밋/브랜치 · 테스트 규약 | [`CONTRIBUTING.md`](./CONTRIBUTING.md) |
+| 아키텍처 철학 · 디렉토리 구조 · AI 에이전트 컨텍스트 | [`CLAUDE.md`](./CLAUDE.md) |
+| 아키텍처 결정 기록 (ADR) | [`docs/adr/`](./docs/adr/README.md) |
