@@ -11,16 +11,12 @@ import com.hansung.tracktory.domain.catalog.classification.repository.CompanyTyp
 import com.hansung.tracktory.domain.catalog.classification.repository.DevFieldRepository;
 import com.hansung.tracktory.domain.catalog.classification.repository.InterestRepository;
 import com.hansung.tracktory.domain.catalog.classification.repository.WorkValueRepository;
-import com.hansung.tracktory.domain.catalog.curriculum.entity.Subject;
-import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectRepository;
 import com.hansung.tracktory.domain.catalog.organization.entity.Department;
 import com.hansung.tracktory.domain.catalog.organization.entity.Track;
 import com.hansung.tracktory.domain.catalog.organization.repository.DepartmentRepository;
 import com.hansung.tracktory.domain.catalog.organization.repository.TrackRepository;
-import com.hansung.tracktory.domain.profile.dto.OnboardingRequest.CompletedSubjectRequest;
 import com.hansung.tracktory.domain.profile.dto.OnboardingRequest.ProfileRequest;
 import com.hansung.tracktory.domain.profile.dto.OnboardingRequest.TrackRequest;
-import com.hansung.tracktory.domain.profile.entity.UserCompletedSubject;
 import com.hansung.tracktory.domain.profile.entity.UserInterest;
 import com.hansung.tracktory.domain.profile.entity.UserProfile;
 import com.hansung.tracktory.domain.profile.entity.UserTechStackCustom;
@@ -50,7 +46,6 @@ class ProfileAssemblerTest {
   @Mock private CompanyTypeRepository companyTypeRepository;
   @Mock private WorkValueRepository workValueRepository;
   @Mock private TechStackRepository techStackRepository;
-  @Mock private SubjectRepository subjectRepository;
 
   private final User user = User.builder().email("a@b.com").passwordHash("x").build();
 
@@ -144,35 +139,6 @@ class ProfileAssemblerTest {
     assertThat(assembler.tracks(user, List.of())).isEmpty();
   }
 
-  // ------------------------------ completedSubjects ------------------------------
-
-  @Test
-  void completedSubjects_success_carriesYearAndSemester() { // year/semester 보존하며 생성
-    Subject s100 = mock(Subject.class);
-    given(s100.getId()).willReturn(100L);
-    given(subjectRepository.findAllById(List.of(100L))).willReturn(List.of(s100));
-
-    List<UserCompletedSubject> result =
-        assembler.completedSubjects(user, List.of(subjectReq(100L, 2, 1)));
-
-    assertThat(result).hasSize(1);
-    assertThat(result.get(0).getYear()).isEqualTo(2);
-    assertThat(result.get(0).getSemester()).isEqualTo(1);
-  }
-
-  @Test
-  void completedSubjects_duplicateSubjectId_throwsValidationFailed() { // subjectId 중복이면 422
-    assertThatThrownBy(
-            () ->
-                assembler.completedSubjects(
-                    user, List.of(subjectReq(100L, 1, 1), subjectReq(100L, 2, 1))))
-        .isInstanceOf(BusinessException.class)
-        .satisfies(
-            e ->
-                assertThat(((BusinessException) e).getErrorCode())
-                    .isEqualTo(ErrorCode.VALIDATION_FAILED));
-  }
-
   // ------------------------------ techStackCustoms ------------------------------
 
   @Test
@@ -224,15 +190,6 @@ class ProfileAssemblerTest {
     TrackRequest r = new TrackRequest();
     ReflectionTestUtils.setField(r, "trackId", trackId);
     ReflectionTestUtils.setField(r, "trackOrder", order);
-    return r;
-  }
-
-  private static CompletedSubjectRequest subjectReq(
-      Long subjectId, Integer year, Integer semester) {
-    CompletedSubjectRequest r = new CompletedSubjectRequest();
-    ReflectionTestUtils.setField(r, "subjectId", subjectId);
-    ReflectionTestUtils.setField(r, "year", year);
-    ReflectionTestUtils.setField(r, "semester", semester);
     return r;
   }
 

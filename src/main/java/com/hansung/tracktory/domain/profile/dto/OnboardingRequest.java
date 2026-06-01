@@ -27,8 +27,6 @@ public class OnboardingRequest {
 
   private List<String> techStackCustoms; // 기술 스택 자유 입력 (선택)
 
-  @Valid private List<CompletedSubjectRequest> completedSubjects; // 이수 과목 (선택)
-
   @Getter
   public static class ProfileRequest {
     @NotNull @Min(1) @Max(4) private Integer currentYear; // 학년
@@ -43,14 +41,5 @@ public class OnboardingRequest {
     @NotNull private Long trackId; // 트랙 ID
 
     @NotNull @Min(1) @Max(2) private Integer trackOrder; // 1=1트랙, 2=트랙
-  }
-
-  @Getter
-  public static class CompletedSubjectRequest {
-    @NotNull private Long subjectId; // 과목 ID
-
-    @NotNull @Min(1) @Max(4) private Integer year; // 이수 학년
-
-    @NotNull @Min(1) @Max(2) private Integer semester; // 이수 학기
   }
 }
