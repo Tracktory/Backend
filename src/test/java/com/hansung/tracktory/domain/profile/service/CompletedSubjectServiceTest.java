@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 import com.hansung.tracktory.domain.catalog.curriculum.entity.Subject;
 import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectRepository;
@@ -12,6 +14,7 @@ import com.hansung.tracktory.domain.profile.dto.CompletedSubjectAddRequest;
 import com.hansung.tracktory.domain.profile.dto.CompletedSubjectDeleteResponse;
 import com.hansung.tracktory.domain.profile.dto.CompletedSubjectResponse;
 import com.hansung.tracktory.domain.profile.entity.UserCompletedSubject;
+import com.hansung.tracktory.domain.profile.event.CompletedSubjectsChangedEvent;
 import com.hansung.tracktory.domain.profile.repository.UserCompletedSubjectRepository;
 import com.hansung.tracktory.domain.user.entity.User;
 import com.hansung.tracktory.domain.user.repository.UserRepository;
@@ -23,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +37,7 @@ class CompletedSubjectServiceTest {
   @Mock private UserRepository userRepository;
   @Mock private SubjectRepository subjectRepository;
   @Mock private UserCompletedSubjectRepository userCompletedSubjectRepository;
+  @Mock private ApplicationEventPublisher eventPublisher;
 
   private final User user = User.builder().email("a@b.com").passwordHash("x").build();
 
@@ -54,6 +59,7 @@ class CompletedSubjectServiceTest {
     assertThat(result.subjectId()).isEqualTo(142L);
     assertThat(result.year()).isEqualTo(2);
     assertThat(result.semester()).isEqualTo(1);
+    verify(eventPublisher).publishEvent(new CompletedSubjectsChangedEvent(1L));
   }
 
   @Test
@@ -66,6 +72,7 @@ class CompletedSubjectServiceTest {
             e ->
                 assertThat(((BusinessException) e).getErrorCode())
                     .isEqualTo(ErrorCode.VALIDATION_FAILED));
+    verify(eventPublisher, never()).publishEvent(any());
   }
 
   @Test
@@ -81,6 +88,7 @@ class CompletedSubjectServiceTest {
             e ->
                 assertThat(((BusinessException) e).getErrorCode())
                     .isEqualTo(ErrorCode.SUBJECT_ALREADY_COMPLETED));
+    verify(eventPublisher, never()).publishEvent(any());
   }
 
   @Test
@@ -90,6 +98,7 @@ class CompletedSubjectServiceTest {
     CompletedSubjectDeleteResponse result = service.delete(1L, 87L);
 
     assertThat(result.deletedId()).isEqualTo(87L);
+    verify(eventPublisher).publishEvent(new CompletedSubjectsChangedEvent(1L));
   }
 
   @Test
@@ -102,6 +111,7 @@ class CompletedSubjectServiceTest {
             e ->
                 assertThat(((BusinessException) e).getErrorCode())
                     .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND));
+    verify(eventPublisher, never()).publishEvent(any());
   }
 
   // ------------------------------ helpers ------------------------------
