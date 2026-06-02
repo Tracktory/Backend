@@ -156,6 +156,7 @@ class RecommendationAssemblerTest {
     assertThat(view.code()).isEqualTo("DE");
     assertThat(view.name()).isEqualTo("데이터 엔지니어");
     assertThat(view.score()).isEqualTo(90);
+    assertThat(view.reasoning()).isEqualTo("이유");
     assertThat(view.techStacks()).containsExactly("Airflow", "Spark");
   }
 
@@ -199,6 +200,7 @@ class RecommendationAssemblerTest {
     TrackView view = response.tracks().primary().get(0);
     assertThat(view.code()).isEqualTo("BIGDATA");
     assertThat(view.primary()).isTrue();
+    assertThat(view.reasoning()).isEqualTo("이유");
 
     List<MainSubjectView> mainSubjects = view.mainSubjects();
     assertThat(mainSubjects).hasSize(3);

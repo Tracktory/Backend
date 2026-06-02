@@ -143,6 +143,7 @@ class RecommendationServiceTest {
     assertThat(saved.getRecommendedJobs()).hasSize(1);
     assertThat(saved.getRecommendedJobs().get(0).getScore()).isEqualTo(90);
     assertThat(saved.getRecommendedJobs().get(0).getJob().getCode()).isEqualTo("be_dev");
+    assertThat(saved.getRecommendedJobs().get(0).getReasoning()).isEqualTo("직무 설명");
 
     assertThat(saved.getRecommendedTracks()).hasSize(3);
     List<RecommendedTrack> primaries =
@@ -151,8 +152,11 @@ class RecommendationServiceTest {
         saved.getRecommendedTracks().stream().filter(t -> !t.isPrimary()).toList();
     assertThat(primaries).extracting(t -> t.getTrack().getCode()).containsExactly("BIGDATA", "WEB");
     assertThat(secondaries).extracting(t -> t.getTrack().getCode()).containsExactly("MOBILE");
+    assertThat(saved.getRecommendedTracks())
+        .allSatisfy(t -> assertThat(t.getReasoning()).isEqualTo("트랙 설명"));
 
     assertThat(saved.getRoadmap()).isNotNull();
+    assertThat(saved.getRoadmap().getReasoning()).isEqualTo("로드맵 설명");
     assertThat(saved.getRoadmap().getSemesters()).hasSize(1);
     var semester = saved.getRoadmap().getSemesters().get(0);
     assertThat(semester.getYear()).isEqualTo(3);
@@ -279,6 +283,7 @@ class RecommendationServiceTest {
         new Explanation(
             "전체 설명",
             List.of(
+                new ExplanationSection("jobs", "직무 설명"),
                 new ExplanationSection("tracks", "트랙 설명"),
                 new ExplanationSection("roadmap", "로드맵 설명")),
             List.of(),

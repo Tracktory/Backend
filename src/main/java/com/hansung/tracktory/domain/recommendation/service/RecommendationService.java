@@ -129,6 +129,8 @@ public class RecommendationService {
   private void addJobs(Recommendation recommendation, AiRecommendResponse ai) {
     // AI 서버가 세분화 직무를 카탈로그 코드로 fold 하면 서로 다른 직무가 같은 코드로 겹칠 수 있다.
     // (recommendation_id, job_id) 유니크 제약을 지키도록 코드 기준으로 중복을 제거한다(match_score 내림차순 가정 → 첫 건 채택).
+    // AI 는 영역(jobs) 단위 설명만 주므로 같은 영역 문구를 각 직무 항목 근거로 채운다.
+    String reasoning = explanationBody(ai.explanation(), "jobs");
     Set<String> seen = new HashSet<>();
     for (AiRecommendResponse.JobCandidate job : nullSafe(ai.jobs())) {
       if (job == null || job.jobId() == null || !seen.add(job.jobId())) {
@@ -141,12 +143,15 @@ public class RecommendationService {
                   recommendation.addRecommendedJob(
                       RecommendedJob.builder()
                           .score(percent(job.matchScore()))
+                          .reasoning(reasoning)
                           .job(catalogJob)
                           .build()));
     }
   }
 
   private void addTracks(Recommendation recommendation, AiRecommendResponse ai, RankedCombo top) {
+    // AI 는 영역(tracks) 단위 설명만 주므로 같은 영역 문구를 각 트랙 항목 근거로 채운다.
+    String reasoning = explanationBody(ai.explanation(), "tracks");
     Set<String> seen = new HashSet<>();
     if (top != null && top.combo() != null) {
       for (AiRecommendResponse.Track aiTrack : pair(top)) {
@@ -154,7 +159,8 @@ public class RecommendationService {
           continue;
         }
         Optional<Track> track = trackRepository.findByCode(aiTrack.trackId());
-        track.ifPresent(t -> addTrack(recommendation, t, percent(top.synergyScore()), true));
+        track.ifPresent(
+            t -> addTrack(recommendation, t, percent(top.synergyScore()), true, reasoning));
       }
     }
 
@@ -174,15 +180,21 @@ public class RecommendationService {
         if (track.isEmpty()) {
           continue;
         }
-        addTrack(recommendation, track.get(), percent(combo.synergyScore()), false);
+        addTrack(recommendation, track.get(), percent(combo.synergyScore()), false, reasoning);
         secondaryCount++;
       }
     }
   }
 
-  private void addTrack(Recommendation recommendation, Track track, int score, boolean primary) {
+  private void addTrack(
+      Recommendation recommendation, Track track, int score, boolean primary, String reasoning) {
     recommendation.addRecommendedTrack(
-        RecommendedTrack.builder().score(score).primary(primary).track(track).build());
+        RecommendedTrack.builder()
+            .score(score)
+            .primary(primary)
+            .reasoning(reasoning)
+            .track(track)
+            .build());
   }
 
   private void addRoadmap(Recommendation recommendation, AiRecommendResponse ai) {
