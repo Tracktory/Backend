@@ -53,6 +53,9 @@ public class RecommendationService {
 
   private static final int MAX_SECONDARY_TRACKS = 5;
 
+  /** AI 가 학과 경계를 넘는 이색 조합 슬롯에 부여하는 slot_type 값. */
+  private static final String SLOT_CROSS_COLLEGE = "cross_college";
+
   private final OnboardingProfileReader onboardingProfileReader;
   private final AiRecommendClient aiRecommendClient;
   private final RecommendationAssembler recommendationAssembler;
@@ -158,17 +161,20 @@ public class RecommendationService {
         if (aiTrack == null || !seen.add(aiTrack.trackId())) {
           continue;
         }
-        Optional<Track> track = trackRepository.findByCode(aiTrack.trackId());
+        Optional<Track> track = findCatalogTrack(aiTrack.trackId());
         track.ifPresent(
-            t -> addTrack(recommendation, t, percent(top.synergyScore()), true, reasoning));
+            t -> addTrack(recommendation, t, percent(top.synergyScore()), true, false, reasoning));
       }
     }
 
+    // AI 슬롯 예약 규칙상 한 트랙은 한 슬롯에만 속하고 이색 조합(cross_college) 슬롯이 일반 다양성(mmr) 슬롯보다
+    // 먼저 오므로, seen 중복 제거로 트랙이 한 번만 저장돼도 이색 조합 분류가 보존된다.
     int secondaryCount = 0;
     for (RankedCombo combo : nullSafe(ai.secondaryCombos())) {
       if (combo == null || combo.combo() == null) {
         continue;
       }
+      boolean crossCombination = isCrossCollege(combo);
       for (AiRecommendResponse.Track aiTrack : pair(combo)) {
         if (secondaryCount >= MAX_SECONDARY_TRACKS) {
           break;
@@ -176,22 +182,56 @@ public class RecommendationService {
         if (aiTrack == null || !seen.add(aiTrack.trackId())) {
           continue;
         }
-        Optional<Track> track = trackRepository.findByCode(aiTrack.trackId());
+        Optional<Track> track = findCatalogTrack(aiTrack.trackId());
         if (track.isEmpty()) {
           continue;
         }
-        addTrack(recommendation, track.get(), percent(combo.synergyScore()), false, reasoning);
+        addTrack(
+            recommendation,
+            track.get(),
+            percent(combo.synergyScore()),
+            false,
+            crossCombination,
+            reasoning);
         secondaryCount++;
       }
     }
   }
 
+  // AI 카탈로그와 본 백엔드 카탈로그가 가운뎃점을 서로 다른 유니코드로 적재해(U+00B7 vs U+318D) 가운뎃점을 포함한
+  // 트랙 code 의 동등 비교가 실패한다. 원본 code 로 먼저 조회하고, 못 찾으면 가운뎃점을 카탈로그 정규형으로 맞춘 code 로 한 번 더 조회한다.
+  // 원본이 이미 매칭되는 트랙은 동작이 바뀌지 않고, 가운뎃점 불일치로 누락되던 트랙만 구제된다.
+  private Optional<Track> findCatalogTrack(String aiTrackId) {
+    if (aiTrackId == null) {
+      return Optional.empty();
+    }
+    Optional<Track> exact = trackRepository.findByCode(aiTrackId);
+    if (exact.isPresent()) {
+      return exact;
+    }
+    String normalized = TrackCodeNormalizer.toCatalogForm(aiTrackId);
+    if (normalized.equals(aiTrackId)) {
+      return exact;
+    }
+    return trackRepository.findByCode(normalized);
+  }
+
+  private static boolean isCrossCollege(RankedCombo combo) {
+    return SLOT_CROSS_COLLEGE.equalsIgnoreCase(combo.slotType());
+  }
+
   private void addTrack(
-      Recommendation recommendation, Track track, int score, boolean primary, String reasoning) {
+      Recommendation recommendation,
+      Track track,
+      int score,
+      boolean primary,
+      boolean crossCombination,
+      String reasoning) {
     recommendation.addRecommendedTrack(
         RecommendedTrack.builder()
             .score(score)
             .primary(primary)
+            .crossCombination(crossCombination)
             .reasoning(reasoning)
             .track(track)
             .build());

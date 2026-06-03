@@ -83,6 +83,8 @@ class AiEnvelopeContractTest {
     assertThat(primary.combo().trackA().trackId()).isEqualTo("빅데이터트랙");
     assertThat(primary.combo().trackB().trackId()).isEqualTo("AIㆍ소프트웨어학과");
     assertThat(primary.synergyScore()).isEqualTo(0.0);
+    // slot_type 은 이색 조합(cross_college) 식별의 근거 필드이므로 역직렬화를 가드한다.
+    assertThat(primary.slotType()).isEqualTo("primary");
 
     SemesterPlan plan = data.roadmap().semesters().get(0);
     assertThat(plan.semester()).isEqualTo(3);

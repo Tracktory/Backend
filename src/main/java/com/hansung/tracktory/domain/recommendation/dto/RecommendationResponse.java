@@ -29,13 +29,17 @@ public record RecommendationResponse(
       List<TrackView> primary,
       List<TrackView> secondary) {}
 
-  /** 추천 트랙 한 건. {@code primary} 가 true 면 주 추천, {@code mainSubjects} 는 트랙의 주요 과목(전공필수) 목록. */
+  /**
+   * 추천 트랙 한 건. {@code primary} 가 true 면 주 추천, {@code crossCombination} 이 true 면 학과 경계를 넘는 이색 조합(보조
+   * 추천 중 별도 배지로 구분 노출 대상), {@code mainSubjects} 는 트랙의 주요 과목(전공필수) 목록.
+   */
   public record TrackView(
       String code,
       String name,
       Integer score,
       String reasoning,
       boolean primary,
+      boolean crossCombination,
       List<MainSubjectView> mainSubjects) {}
 
   /** 트랙의 주요 과목(전공필수) 한 건. */
