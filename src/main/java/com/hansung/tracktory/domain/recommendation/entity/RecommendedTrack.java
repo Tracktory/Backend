@@ -37,6 +37,10 @@ public class RecommendedTrack extends BaseEntity {
   @Column(name = "is_primary", nullable = false)
   private boolean primary;
 
+  /** 학과 경계를 넘는 이색 조합 슬롯에서 나온 트랙인지 — AI 의 cross_college 슬롯 분류를 보존한다. */
+  @Column(name = "is_cross_combination", nullable = false)
+  private boolean crossCombination;
+
   @ManyToOne(fetch = FetchType.LAZY)
   @JoinColumn(name = "recommendation_id", nullable = false)
   private Recommendation recommendation;
@@ -46,10 +50,12 @@ public class RecommendedTrack extends BaseEntity {
   private Track track;
 
   @Builder
-  public RecommendedTrack(Integer score, String reasoning, boolean primary, Track track) {
+  public RecommendedTrack(
+      Integer score, String reasoning, boolean primary, boolean crossCombination, Track track) {
     this.score = score;
     this.reasoning = reasoning;
     this.primary = primary;
+    this.crossCombination = crossCombination;
     this.track = track;
   }
 

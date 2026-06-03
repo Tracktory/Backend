@@ -201,6 +201,7 @@ class RecommendationAssemblerTest {
     TrackView view = response.tracks().primary().get(0);
     assertThat(view.code()).isEqualTo("BIGDATA");
     assertThat(view.primary()).isTrue();
+    assertThat(view.crossCombination()).isFalse();
     assertThat(view.reasoning()).isEqualTo("이유");
     // 직무 점수 보정(이슈 #45)은 트랙 점수에 적용되지 않는다: 트랙 점수는 원본 그대로 노출된다(보정 시 95→98).
     assertThat(view.score()).isEqualTo(95);
@@ -210,6 +211,72 @@ class RecommendationAssemblerTest {
     assertThat(mainSubjects).extracting(MainSubjectView::code).containsExactly("S1", "S2", "S3");
     assertThat(mainSubjects.get(0).name()).isEqualTo("프로그래밍기초");
     assertThat(mainSubjects.get(2).name()).isEqualTo("데이터베이스");
+  }
+
+  @Test
+  void assemble_mapsCrossCombinationFlagOntoTrackViews() {
+    Track primaryTrack = mock(Track.class);
+    given(primaryTrack.getId()).willReturn(20L);
+    given(primaryTrack.getCode()).willReturn("BIGDATA");
+    given(primaryTrack.getName()).willReturn("빅데이터 트랙");
+    Track crossTrack = mock(Track.class);
+    given(crossTrack.getId()).willReturn(21L);
+    given(crossTrack.getCode()).willReturn("KOREAN_EDU");
+    given(crossTrack.getName()).willReturn("한국어교육 트랙");
+
+    Recommendation recommendation =
+        Recommendation.builder().status(RecommendationStatus.ACTIVE).build();
+    recommendation.addRecommendedTrack(
+        RecommendedTrack.builder()
+            .score(95)
+            .reasoning("주 추천")
+            .primary(true)
+            .crossCombination(false)
+            .track(primaryTrack)
+            .build());
+    recommendation.addRecommendedTrack(
+        RecommendedTrack.builder()
+            .score(60)
+            .reasoning("이색 조합")
+            .primary(false)
+            .crossCombination(true)
+            .track(crossTrack)
+            .build());
+
+    given(trackSubjectRepository.findByTrackInAndType(anyCollection(), eq(SubjectType.REQUIRED)))
+        .willReturn(List.of());
+
+    OnboardingProfileSnapshot profile =
+        new OnboardingProfileSnapshot(
+            1L,
+            2023,
+            "IT공과대학",
+            "컴퓨터공학부",
+            3,
+            List.of("BIGDATA"),
+            List.of("IT/인터넷"),
+            List.of("앱"),
+            List.of("성장성"),
+            List.of("대기업"),
+            List.of(),
+            List.of());
+
+    RecommendationResponse response = recommendationAssembler.assemble(recommendation, profile);
+
+    assertThat(response.tracks().primary())
+        .singleElement()
+        .satisfies(
+            v -> {
+              assertThat(v.code()).isEqualTo("BIGDATA");
+              assertThat(v.crossCombination()).isFalse();
+            });
+    assertThat(response.tracks().secondary())
+        .singleElement()
+        .satisfies(
+            v -> {
+              assertThat(v.code()).isEqualTo("KOREAN_EDU");
+              assertThat(v.crossCombination()).isTrue();
+            });
   }
 
   private static Subject subject(long id, String code, String name) {

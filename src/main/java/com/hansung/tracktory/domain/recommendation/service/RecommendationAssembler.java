@@ -111,6 +111,7 @@ public class RecommendationAssembler {
               rt.getScore(),
               rt.getReasoning(),
               rt.isPrimary(),
+              rt.isCrossCombination(),
               mainSubjects.getOrDefault(rt.getTrack().getId(), List.of()));
       (rt.isPrimary() ? primary : secondary).add(view);
     }

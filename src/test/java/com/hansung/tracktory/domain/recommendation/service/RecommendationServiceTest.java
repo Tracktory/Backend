@@ -119,6 +119,8 @@ class RecommendationServiceTest {
         .willReturn(Optional.of(Track.builder().code("WEB").name("웹공학트랙").build()));
     given(trackRepository.findByCode("MOBILE"))
         .willReturn(Optional.of(Track.builder().code("MOBILE").name("모바일소프트웨어트랙").build()));
+    given(trackRepository.findByCode("SECURITY"))
+        .willReturn(Optional.of(Track.builder().code("SECURITY").name("융합보안트랙").build()));
     given(subjectRepository.findByCode("W080001"))
         .willReturn(Optional.of(Subject.builder().code("W080001").name("프로그래밍기초").build()));
     given(recommendationRepository.save(any(Recommendation.class)))
@@ -145,15 +147,28 @@ class RecommendationServiceTest {
     assertThat(saved.getRecommendedJobs().get(0).getJob().getCode()).isEqualTo("be_dev");
     assertThat(saved.getRecommendedJobs().get(0).getReasoning()).isEqualTo("직무 설명");
 
-    assertThat(saved.getRecommendedTracks()).hasSize(3);
+    assertThat(saved.getRecommendedTracks()).hasSize(4);
     List<RecommendedTrack> primaries =
         saved.getRecommendedTracks().stream().filter(RecommendedTrack::isPrimary).toList();
     List<RecommendedTrack> secondaries =
         saved.getRecommendedTracks().stream().filter(t -> !t.isPrimary()).toList();
     assertThat(primaries).extracting(t -> t.getTrack().getCode()).containsExactly("BIGDATA", "WEB");
-    assertThat(secondaries).extracting(t -> t.getTrack().getCode()).containsExactly("MOBILE");
+    assertThat(secondaries)
+        .extracting(t -> t.getTrack().getCode())
+        .containsExactly("MOBILE", "SECURITY");
     assertThat(saved.getRecommendedTracks())
         .allSatisfy(t -> assertThat(t.getReasoning()).isEqualTo("트랙 설명"));
+
+    // 이색 조합 식별: 주 추천은 항상 false, 보조는 cross_college 슬롯만 true(mmr 은 false).
+    assertThat(primaries).allSatisfy(t -> assertThat(t.isCrossCombination()).isFalse());
+    assertThat(secondaries)
+        .filteredOn(t -> t.getTrack().getCode().equals("MOBILE"))
+        .singleElement()
+        .satisfies(t -> assertThat(t.isCrossCombination()).isTrue());
+    assertThat(secondaries)
+        .filteredOn(t -> t.getTrack().getCode().equals("SECURITY"))
+        .singleElement()
+        .satisfies(t -> assertThat(t.isCrossCombination()).isFalse());
 
     assertThat(saved.getRoadmap()).isNotNull();
     assertThat(saved.getRoadmap().getReasoning()).isEqualTo("로드맵 설명");
@@ -238,6 +253,47 @@ class RecommendationServiceTest {
     assertThat(saved.getRecommendedJobs().get(0).getScore()).isEqualTo(90);
   }
 
+  @Test
+  void generate_secondaryComboWithNullSlotType_notMarkedCrossCombination() {
+    OnboardingProfileSnapshot profile = sampleProfile();
+    AiRecommendResponse.Track mobile =
+        new AiRecommendResponse.Track("c", "d", "MOBILE", "모바일소프트웨어트랙");
+    // AI 가 slot_type 을 누락(null)한 보조 조합 — 이색 조합으로 표시되면 안 된다(널 안전 가드).
+    RankedCombo secondaryNull =
+        new RankedCombo(new TrackCombo(mobile, null, "MOBILE"), 0.5, null, 2);
+    AiRecommendResponse ai =
+        new AiRecommendResponse(List.of(), List.of(), List.of(secondaryNull), null, null);
+
+    given(onboardingProfileReader.read(USER_ID)).willReturn(Optional.of(profile));
+    given(
+            recommendationRepository.findFirstByUser_IdAndStatusOrderByCreatedAtDesc(
+                USER_ID, RecommendationStatus.ACTIVE))
+        .willReturn(Optional.empty());
+    given(aiRecommendClient.generate(any())).willReturn(ai);
+    given(userRepository.findById(USER_ID)).willReturn(Optional.of(sampleUser()));
+    given(recommendationRepository.findByUser_IdAndStatus(USER_ID, RecommendationStatus.ACTIVE))
+        .willReturn(List.of());
+    given(trackRepository.findByCode("MOBILE"))
+        .willReturn(Optional.of(Track.builder().code("MOBILE").name("모바일소프트웨어트랙").build()));
+    given(recommendationRepository.save(any(Recommendation.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+    given(recommendationAssembler.assemble(any(Recommendation.class), eq(profile)))
+        .willReturn(sentinelResponse());
+
+    recommendationService.generate(USER_ID, false);
+
+    ArgumentCaptor<Recommendation> captor = ArgumentCaptor.forClass(Recommendation.class);
+    verify(recommendationRepository).save(captor.capture());
+    Recommendation saved = captor.getValue();
+    assertThat(saved.getRecommendedTracks())
+        .singleElement()
+        .satisfies(
+            t -> {
+              assertThat(t.getTrack().getCode()).isEqualTo("MOBILE");
+              assertThat(t.isCrossCombination()).isFalse();
+            });
+  }
+
   private static OnboardingProfileSnapshot sampleProfile() {
     return new OnboardingProfileSnapshot(
         USER_ID,
@@ -268,11 +324,17 @@ class RecommendationServiceTest {
     AiRecommendResponse.Track web = new AiRecommendResponse.Track("c", "d", "WEB", "웹공학트랙");
     AiRecommendResponse.Track mobile =
         new AiRecommendResponse.Track("c", "d", "MOBILE", "모바일소프트웨어트랙");
+    AiRecommendResponse.Track security =
+        new AiRecommendResponse.Track("c", "d", "SECURITY", "융합보안트랙");
 
     RankedCombo primary =
         new RankedCombo(new TrackCombo(bigdata, web, "BIGDATA+WEB"), 0.85, "primary", 1);
-    RankedCombo secondary =
+    // 이색 조합 슬롯(cross_college) — MOBILE 만 신규(BIGDATA 는 주 추천에서 이미 노출).
+    RankedCombo secondaryCross =
         new RankedCombo(new TrackCombo(mobile, bigdata, "MOBILE+BIGDATA"), 0.6, "cross_college", 2);
+    // 일반 다양성 슬롯(mmr) — SECURITY 만 신규. 이색 조합으로 표시되면 안 된다.
+    RankedCombo secondaryMmr =
+        new RankedCombo(new TrackCombo(security, bigdata, "SECURITY+BIGDATA"), 0.55, "mmr", 3);
 
     RoadmapCourse course = new RoadmapCourse("W080001", "프로그래밍기초", 0.6, 3, "foundation");
     RoadmapStage stage = new RoadmapStage("foundation", List.of(course));
@@ -292,7 +354,7 @@ class RecommendationServiceTest {
     return new AiRecommendResponse(
         List.of(new JobCandidate("be_dev", "백엔드 개발자", List.of(), List.of(), 0.9, 0.8, false)),
         List.of(primary),
-        List.of(secondary),
+        List.of(secondaryCross, secondaryMmr),
         roadmap,
         explanation);
   }

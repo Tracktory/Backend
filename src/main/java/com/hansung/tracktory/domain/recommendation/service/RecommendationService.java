@@ -53,6 +53,9 @@ public class RecommendationService {
 
   private static final int MAX_SECONDARY_TRACKS = 5;
 
+  /** AI 가 학과 경계를 넘는 이색 조합 슬롯에 부여하는 slot_type 값. */
+  private static final String SLOT_CROSS_COLLEGE = "cross_college";
+
   private final OnboardingProfileReader onboardingProfileReader;
   private final AiRecommendClient aiRecommendClient;
   private final RecommendationAssembler recommendationAssembler;
@@ -160,15 +163,18 @@ public class RecommendationService {
         }
         Optional<Track> track = trackRepository.findByCode(aiTrack.trackId());
         track.ifPresent(
-            t -> addTrack(recommendation, t, percent(top.synergyScore()), true, reasoning));
+            t -> addTrack(recommendation, t, percent(top.synergyScore()), true, false, reasoning));
       }
     }
 
+    // AI 슬롯 예약 규칙상 한 트랙은 한 슬롯에만 속하고 이색 조합(cross_college) 슬롯이 일반 다양성(mmr) 슬롯보다
+    // 먼저 오므로, seen 중복 제거로 트랙이 한 번만 저장돼도 이색 조합 분류가 보존된다.
     int secondaryCount = 0;
     for (RankedCombo combo : nullSafe(ai.secondaryCombos())) {
       if (combo == null || combo.combo() == null) {
         continue;
       }
+      boolean crossCombination = isCrossCollege(combo);
       for (AiRecommendResponse.Track aiTrack : pair(combo)) {
         if (secondaryCount >= MAX_SECONDARY_TRACKS) {
           break;
@@ -180,18 +186,34 @@ public class RecommendationService {
         if (track.isEmpty()) {
           continue;
         }
-        addTrack(recommendation, track.get(), percent(combo.synergyScore()), false, reasoning);
+        addTrack(
+            recommendation,
+            track.get(),
+            percent(combo.synergyScore()),
+            false,
+            crossCombination,
+            reasoning);
         secondaryCount++;
       }
     }
   }
 
+  private static boolean isCrossCollege(RankedCombo combo) {
+    return SLOT_CROSS_COLLEGE.equalsIgnoreCase(combo.slotType());
+  }
+
   private void addTrack(
-      Recommendation recommendation, Track track, int score, boolean primary, String reasoning) {
+      Recommendation recommendation,
+      Track track,
+      int score,
+      boolean primary,
+      boolean crossCombination,
+      String reasoning) {
     recommendation.addRecommendedTrack(
         RecommendedTrack.builder()
             .score(score)
             .primary(primary)
+            .crossCombination(crossCombination)
             .reasoning(reasoning)
             .track(track)
             .build());
