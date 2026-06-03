@@ -75,7 +75,8 @@ public class RecommendationAssembler {
                 new JobView(
                     j.getJob().getCode(),
                     j.getJob().getName(),
-                    j.getScore(),
+                    // 저장된 내부 점수는 그대로 두고 응답 노출값만 체감 척도로 보정한다.
+                    JobScoreCalibrator.toDisplayScore(j.getScore()),
                     j.getReasoning(),
                     techStacks.getOrDefault(j.getJob().getId(), List.of())))
         .toList();

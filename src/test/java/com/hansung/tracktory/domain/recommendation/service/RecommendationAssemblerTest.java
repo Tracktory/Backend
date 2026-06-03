@@ -155,7 +155,8 @@ class RecommendationAssemblerTest {
     JobView view = response.jobs().get(0);
     assertThat(view.code()).isEqualTo("DE");
     assertThat(view.name()).isEqualTo("데이터 엔지니어");
-    assertThat(view.score()).isEqualTo(90);
+    // 내부 저장 점수 90 은 응답 노출 시 체감 척도로 보정된다: round(60 + 90×0.40) = 96.
+    assertThat(view.score()).isEqualTo(96);
     assertThat(view.reasoning()).isEqualTo("이유");
     assertThat(view.techStacks()).containsExactly("Airflow", "Spark");
   }
@@ -201,6 +202,8 @@ class RecommendationAssemblerTest {
     assertThat(view.code()).isEqualTo("BIGDATA");
     assertThat(view.primary()).isTrue();
     assertThat(view.reasoning()).isEqualTo("이유");
+    // 직무 점수 보정(이슈 #45)은 트랙 점수에 적용되지 않는다: 트랙 점수는 원본 그대로 노출된다(보정 시 95→98).
+    assertThat(view.score()).isEqualTo(95);
 
     List<MainSubjectView> mainSubjects = view.mainSubjects();
     assertThat(mainSubjects).hasSize(3);
