@@ -52,6 +52,9 @@ public class RecommendationAssembler {
   /** 트랙별 주요 과목으로 노출할 전공필수 과목 수. */
   private static final int MAIN_SUBJECT_LIMIT = 3;
 
+  /** 직무 카드가 과도하게 커지지 않도록 AI 가 정렬해 준 역량 태그 중 상위 N 개만 노출한다. */
+  private static final int COMPETENCY_TAG_LIMIT = 10;
+
   private final SubjectRepository subjectRepository;
   private final SubjectPrerequisiteRepository subjectPrerequisiteRepository;
   private final TrackSubjectRepository trackSubjectRepository;
@@ -78,8 +81,13 @@ public class RecommendationAssembler {
                     // 저장된 내부 점수는 그대로 두고 응답 노출값만 체감 척도로 보정한다.
                     JobScoreCalibrator.toDisplayScore(j.getScore()),
                     j.getReasoning(),
-                    techStacks.getOrDefault(j.getJob().getId(), List.of())))
+                    techStacks.getOrDefault(j.getJob().getId(), List.of()),
+                    topCompetencyTags(j.getCompetencyTags())))
         .toList();
+  }
+
+  private List<String> topCompetencyTags(List<String> competencyTags) {
+    return competencyTags.stream().limit(COMPETENCY_TAG_LIMIT).toList();
   }
 
   private Map<Long, List<String>> techStackIndex(List<Job> jobs) {
@@ -198,6 +206,8 @@ public class RecommendationAssembler {
                     new CourseView(
                         s.getCode(),
                         s.getName(),
+                        s.getCredit(),
+                        s.getDescription(),
                         timing,
                         true,
                         null,
@@ -219,6 +229,8 @@ public class RecommendationAssembler {
                     new CourseView(
                         item.getSubject().getCode(),
                         item.getSubject().getName(),
+                        item.getSubject().getCredit(),
+                        item.getSubject().getDescription(),
                         timing,
                         false,
                         item.getScore(),

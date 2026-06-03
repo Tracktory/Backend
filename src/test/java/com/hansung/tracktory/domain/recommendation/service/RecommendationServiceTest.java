@@ -146,6 +146,8 @@ class RecommendationServiceTest {
     assertThat(saved.getRecommendedJobs().get(0).getScore()).isEqualTo(90);
     assertThat(saved.getRecommendedJobs().get(0).getJob().getCode()).isEqualTo("be_dev");
     assertThat(saved.getRecommendedJobs().get(0).getReasoning()).isEqualTo("직무 설명");
+    assertThat(saved.getRecommendedJobs().get(0).getCompetencyTags())
+        .containsExactly("API 설계", "트랜잭션");
 
     assertThat(saved.getRecommendedTracks()).hasSize(4);
     List<RecommendedTrack> primaries =
@@ -219,8 +221,9 @@ class RecommendationServiceTest {
     AiRecommendResponse ai =
         new AiRecommendResponse(
             List.of(
-                new JobCandidate("DE", "데이터 엔지니어", List.of(), List.of(), 0.9, 0.8, false),
-                new JobCandidate("DE", "데이터 분석가", List.of(), List.of(), 0.5, 0.4, false)),
+                new JobCandidate(
+                    "DE", "데이터 엔지니어", List.of(), List.of("데이터 파이프라인"), 0.9, 0.8, false),
+                new JobCandidate("DE", "데이터 분석가", List.of(), List.of("분석 모델링"), 0.5, 0.4, false)),
             List.of(),
             List.of(),
             null,
@@ -251,6 +254,7 @@ class RecommendationServiceTest {
     assertThat(saved.getRecommendedJobs()).hasSize(1);
     assertThat(saved.getRecommendedJobs().get(0).getJob().getCode()).isEqualTo("DE");
     assertThat(saved.getRecommendedJobs().get(0).getScore()).isEqualTo(90);
+    assertThat(saved.getRecommendedJobs().get(0).getCompetencyTags()).containsExactly("데이터 파이프라인");
   }
 
   @Test
@@ -397,7 +401,9 @@ class RecommendationServiceTest {
             List.of());
 
     return new AiRecommendResponse(
-        List.of(new JobCandidate("be_dev", "백엔드 개발자", List.of(), List.of(), 0.9, 0.8, false)),
+        List.of(
+            new JobCandidate(
+                "be_dev", "백엔드 개발자", List.of(), List.of("API 설계", "트랜잭션"), 0.9, 0.8, false)),
         List.of(primary),
         List.of(secondaryCross, secondaryMmr),
         roadmap,

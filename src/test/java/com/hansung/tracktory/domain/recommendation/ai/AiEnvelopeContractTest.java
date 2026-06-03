@@ -76,6 +76,7 @@ class AiEnvelopeContractTest {
 
     JobCandidate job = data.jobs().get(0);
     assertThat(job.jobId()).isEqualTo("ml_engineer");
+    assertThat(job.competencyTags()).containsExactly("문제해결");
     assertThat(job.matchScore()).isEqualTo(0.91);
     assertThat(job.fallbackUsed()).isFalse();
 
