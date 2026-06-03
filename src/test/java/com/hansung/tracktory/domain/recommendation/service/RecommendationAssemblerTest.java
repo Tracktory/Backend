@@ -124,11 +124,25 @@ class RecommendationAssemblerTest {
   }
 
   @Test
-  void assemble_populatesJobTechStacksFromCatalogSortedByName() {
+  void assemble_populatesJobTechStacksFromCatalogSortedByNameAndLimitsCompetencyTags() {
     Job job = mock(Job.class);
     given(job.getId()).willReturn(10L);
     given(job.getCode()).willReturn("DE");
     given(job.getName()).willReturn("데이터 엔지니어");
+    List<String> competencyTags =
+        List.of(
+            "Docker",
+            "S3",
+            "Grafana",
+            "Flink",
+            "Prometheus",
+            "dbt",
+            "BigQuery",
+            "PostgreSQL",
+            "Vue.js",
+            "Apache",
+            "CI/CD",
+            "Hadoop");
 
     Recommendation recommendation =
         Recommendation.builder().status(RecommendationStatus.ACTIVE).build();
@@ -136,7 +150,7 @@ class RecommendationAssemblerTest {
         RecommendedJob.builder()
             .score(90)
             .reasoning("이유")
-            .competencyTags(List.of("API 설계", "데이터 모델링"))
+            .competencyTags(competencyTags)
             .job(job)
             .build());
 
@@ -169,7 +183,18 @@ class RecommendationAssemblerTest {
     assertThat(view.score()).isEqualTo(96);
     assertThat(view.reasoning()).isEqualTo("이유");
     assertThat(view.techStacks()).containsExactly("Airflow", "Spark");
-    assertThat(view.competencyTags()).containsExactly("API 설계", "데이터 모델링");
+    assertThat(view.competencyTags())
+        .containsExactly(
+            "Docker",
+            "S3",
+            "Grafana",
+            "Flink",
+            "Prometheus",
+            "dbt",
+            "BigQuery",
+            "PostgreSQL",
+            "Vue.js",
+            "Apache");
   }
 
   @Test
