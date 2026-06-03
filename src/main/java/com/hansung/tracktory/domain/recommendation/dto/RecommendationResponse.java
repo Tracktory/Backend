@@ -15,8 +15,8 @@ public record RecommendationResponse(
     RoadmapView roadmap) {
 
   /**
-   * 추천 직무 한 건. {@code score} 는 0~100 적합도, {@code techStacks} 는 카탈로그가 보유한 직무 요구 기술 스택 이름 목록(없으면 빈
-   * 리스트).
+   * 추천 직무 한 건. {@code score} 는 사용자 체감 척도로 보정한 표시 점수(0~100, 하한 위로 끌어올린 값이며 내부 저장 점수와는 다름), {@code
+   * techStacks} 는 카탈로그가 보유한 직무 요구 기술 스택 이름 목록(없으면 빈 리스트).
    */
   public record JobView(
       String code, String name, Integer score, String reasoning, List<String> techStacks) {}
