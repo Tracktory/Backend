@@ -161,7 +161,7 @@ public class RecommendationService {
         if (aiTrack == null || !seen.add(aiTrack.trackId())) {
           continue;
         }
-        Optional<Track> track = trackRepository.findByCode(aiTrack.trackId());
+        Optional<Track> track = findCatalogTrack(aiTrack.trackId());
         track.ifPresent(
             t -> addTrack(recommendation, t, percent(top.synergyScore()), true, false, reasoning));
       }
@@ -182,7 +182,7 @@ public class RecommendationService {
         if (aiTrack == null || !seen.add(aiTrack.trackId())) {
           continue;
         }
-        Optional<Track> track = trackRepository.findByCode(aiTrack.trackId());
+        Optional<Track> track = findCatalogTrack(aiTrack.trackId());
         if (track.isEmpty()) {
           continue;
         }
@@ -196,6 +196,24 @@ public class RecommendationService {
         secondaryCount++;
       }
     }
+  }
+
+  // AI 카탈로그와 본 백엔드 카탈로그가 가운뎃점을 서로 다른 유니코드로 적재해(U+00B7 vs U+318D) 가운뎃점을 포함한
+  // 트랙 code 의 동등 비교가 실패한다. 원본 code 로 먼저 조회하고, 못 찾으면 가운뎃점을 카탈로그 정규형으로 맞춘 code 로 한 번 더 조회한다.
+  // 원본이 이미 매칭되는 트랙은 동작이 바뀌지 않고, 가운뎃점 불일치로 누락되던 트랙만 구제된다.
+  private Optional<Track> findCatalogTrack(String aiTrackId) {
+    if (aiTrackId == null) {
+      return Optional.empty();
+    }
+    Optional<Track> exact = trackRepository.findByCode(aiTrackId);
+    if (exact.isPresent()) {
+      return exact;
+    }
+    String normalized = TrackCodeNormalizer.toCatalogForm(aiTrackId);
+    if (normalized.equals(aiTrackId)) {
+      return exact;
+    }
+    return trackRepository.findByCode(normalized);
   }
 
   private static boolean isCrossCollege(RankedCombo combo) {

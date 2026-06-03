@@ -294,6 +294,51 @@ class RecommendationServiceTest {
             });
   }
 
+  @Test
+  void generate_secondaryComboWithMiddleDotVariant_mappedViaNormalizedCode() {
+    OnboardingProfileSnapshot profile = sampleProfile();
+    // AI 카탈로그는 가운뎃점에 MIDDLE DOT(U+00B7)을, 본 카탈로그는 HANGUL LETTER ARAEA(U+318D)를 쓴다.
+    // 글자 모양은 같지만 코드 포인트가 달라 원본 code 로는 못 찾는다 — 정규화 후에만 매핑돼야 한다(누락 회귀 가드).
+    String aiCode = "디지털콘텐츠" + (char) 0x00B7 + "가상현실트랙";
+    String catalogCode = "디지털콘텐츠" + (char) 0x318D + "가상현실트랙";
+    AiRecommendResponse.Track vr = new AiRecommendResponse.Track("c", "d", aiCode, "가상현실트랙");
+    RankedCombo secondary =
+        new RankedCombo(new TrackCombo(vr, null, aiCode), 0.6, "cross_college", 2);
+    AiRecommendResponse ai =
+        new AiRecommendResponse(List.of(), List.of(), List.of(secondary), null, null);
+
+    given(onboardingProfileReader.read(USER_ID)).willReturn(Optional.of(profile));
+    given(
+            recommendationRepository.findFirstByUser_IdAndStatusOrderByCreatedAtDesc(
+                USER_ID, RecommendationStatus.ACTIVE))
+        .willReturn(Optional.empty());
+    given(aiRecommendClient.generate(any())).willReturn(ai);
+    given(userRepository.findById(USER_ID)).willReturn(Optional.of(sampleUser()));
+    given(recommendationRepository.findByUser_IdAndStatus(USER_ID, RecommendationStatus.ACTIVE))
+        .willReturn(List.of());
+    given(trackRepository.findByCode(aiCode)).willReturn(Optional.empty());
+    given(trackRepository.findByCode(catalogCode))
+        .willReturn(Optional.of(Track.builder().code(catalogCode).name("가상현실트랙").build()));
+    given(recommendationRepository.save(any(Recommendation.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+    given(recommendationAssembler.assemble(any(Recommendation.class), eq(profile)))
+        .willReturn(sentinelResponse());
+
+    recommendationService.generate(USER_ID, false);
+
+    ArgumentCaptor<Recommendation> captor = ArgumentCaptor.forClass(Recommendation.class);
+    verify(recommendationRepository).save(captor.capture());
+    Recommendation saved = captor.getValue();
+    assertThat(saved.getRecommendedTracks())
+        .singleElement()
+        .satisfies(
+            t -> {
+              assertThat(t.getTrack().getCode()).isEqualTo(catalogCode);
+              assertThat(t.isPrimary()).isFalse();
+              assertThat(t.isCrossCombination()).isTrue();
+            });
+  }
+
   private static OnboardingProfileSnapshot sampleProfile() {
     return new OnboardingProfileSnapshot(
         USER_ID,
