@@ -147,6 +147,7 @@ public class RecommendationService {
                       RecommendedJob.builder()
                           .score(percent(job.matchScore()))
                           .reasoning(reasoning)
+                          .competencyTags(nullSafe(job.competencyTags()))
                           .job(catalogJob)
                           .build()));
     }

@@ -1,5 +1,6 @@
 package com.hansung.tracktory.domain.recommendation.dto;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -16,10 +17,16 @@ public record RecommendationResponse(
 
   /**
    * 추천 직무 한 건. {@code score} 는 사용자 체감 척도로 보정한 표시 점수(0~100, 하한 위로 끌어올린 값이며 내부 저장 점수와는 다름), {@code
-   * techStacks} 는 카탈로그가 보유한 직무 요구 기술 스택 이름 목록(없으면 빈 리스트).
+   * techStacks} 는 카탈로그가 보유한 직무 요구 기술 스택 이름 목록(없으면 빈 리스트), {@code competencyTags} 는 AI 가 직무 카드 표시용으로
+   * 돌려준 역량 태그 목록.
    */
   public record JobView(
-      String code, String name, Integer score, String reasoning, List<String> techStacks) {}
+      String code,
+      String name,
+      Integer score,
+      String reasoning,
+      List<String> techStacks,
+      List<String> competencyTags) {}
 
   /** 트랙 추천 — 주 추천 2개 + 보조 추천 다수, 최상위 조합의 시너지 요약을 포함한다. */
   public record TrackRecommendationView(
@@ -54,11 +61,13 @@ public record RecommendationResponse(
 
   /**
    * 학기 내 과목. {@code timing} 은 PAST/CURRENT/FUTURE, {@code completed} 는 이수 여부, {@code score} 는 미래 추천
-   * 과목의 적합도(0~100, 과거 과목은 null).
+   * 과목의 적합도(0~100, 과거 과목은 null), {@code credits}/{@code description} 은 카탈로그 과목 상세 정보.
    */
   public record CourseView(
       String code,
       String name,
+      BigDecimal credits,
+      String description,
       String timing,
       boolean completed,
       Integer score,

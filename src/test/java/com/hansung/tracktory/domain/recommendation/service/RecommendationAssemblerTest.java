@@ -33,6 +33,7 @@ import com.hansung.tracktory.domain.recommendation.entity.RoadmapItem;
 import com.hansung.tracktory.domain.recommendation.entity.RoadmapSemester;
 import com.hansung.tracktory.domain.recommendation.onboarding.OnboardingProfileSnapshot;
 import com.hansung.tracktory.domain.recommendation.onboarding.OnboardingProfileSnapshot.CompletedCourse;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -99,6 +100,8 @@ class RecommendationAssemblerTest {
     assertThat(first.timing()).isEqualTo("PAST");
     assertThat(first.courses()).hasSize(1);
     assertThat(first.courses().get(0).code()).isEqualTo("W1");
+    assertThat(first.courses().get(0).credits()).isEqualByComparingTo("3.0");
+    assertThat(first.courses().get(0).description()).isEqualTo("자료구조 설명");
     assertThat(first.courses().get(0).completed()).isTrue();
     assertThat(first.courses().get(0).score()).isNull();
 
@@ -114,6 +117,8 @@ class RecommendationAssemblerTest {
     assertThat(third.stage()).isEqualTo(SubjectStage.APPLIED.name());
     assertThat(third.timing()).isEqualTo("FUTURE");
     assertThat(third.courses().get(0).code()).isEqualTo("W3");
+    assertThat(third.courses().get(0).credits()).isEqualByComparingTo("3.0");
+    assertThat(third.courses().get(0).description()).isEqualTo("캡스톤 설명");
     assertThat(third.courses().get(0).completed()).isFalse();
     assertThat(third.courses().get(0).score()).isEqualTo(2);
   }
@@ -128,7 +133,12 @@ class RecommendationAssemblerTest {
     Recommendation recommendation =
         Recommendation.builder().status(RecommendationStatus.ACTIVE).build();
     recommendation.addRecommendedJob(
-        RecommendedJob.builder().score(90).reasoning("이유").job(job).build());
+        RecommendedJob.builder()
+            .score(90)
+            .reasoning("이유")
+            .competencyTags(List.of("API 설계", "데이터 모델링"))
+            .job(job)
+            .build());
 
     JobTechStack spark = jobTechStack(job, "Spark");
     JobTechStack airflow = jobTechStack(job, "Airflow");
@@ -159,6 +169,7 @@ class RecommendationAssemblerTest {
     assertThat(view.score()).isEqualTo(96);
     assertThat(view.reasoning()).isEqualTo("이유");
     assertThat(view.techStacks()).containsExactly("Airflow", "Spark");
+    assertThat(view.competencyTags()).containsExactly("API 설계", "데이터 모델링");
   }
 
   @Test
@@ -284,6 +295,8 @@ class RecommendationAssemblerTest {
     given(subject.getId()).willReturn(id);
     given(subject.getCode()).willReturn(code);
     given(subject.getName()).willReturn(name);
+    given(subject.getCredit()).willReturn(new BigDecimal("3.0"));
+    given(subject.getDescription()).willReturn(name + " 설명");
     return subject;
   }
 
