@@ -8,13 +8,20 @@ import com.hansung.tracktory.domain.catalog.organization.repository.TrackReposit
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendClient;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendRequest;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.CourseCoverageContribution;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.Explanation;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.JobCoverage;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.NextActionSuggestion;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RankedCombo;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RoadmapCourse;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RoadmapStage;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.SemesterPlan;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse;
 import com.hansung.tracktory.domain.recommendation.entity.Recommendation;
+import com.hansung.tracktory.domain.recommendation.entity.RecommendationCourseContribution;
+import com.hansung.tracktory.domain.recommendation.entity.RecommendationCoverage;
+import com.hansung.tracktory.domain.recommendation.entity.RecommendationJobCoverage;
+import com.hansung.tracktory.domain.recommendation.entity.RecommendationNextAction;
 import com.hansung.tracktory.domain.recommendation.entity.RecommendationStatus;
 import com.hansung.tracktory.domain.recommendation.entity.RecommendationTriggerSource;
 import com.hansung.tracktory.domain.recommendation.entity.RecommendedJob;
@@ -126,7 +133,75 @@ public class RecommendationService {
     addJobs(recommendation, ai);
     addTracks(recommendation, ai, topCombo);
     addRoadmap(recommendation, ai);
+    addCoverage(recommendation, ai);
     return recommendation;
+  }
+
+  // AI 가 추천 생성 시점에 산출한 역량 충족도 스냅샷을 그대로 보존한다. 비율은 저장하지 않고 카운트만 보존하며,
+  // AI 가 합집합으로 계산한 next_actions_covered 도 재계산 없이 그대로 옮겨 화면 3단 표기(현재 ≤ 다음 N개 ≤ 전체) 불변을 지킨다.
+  private void addCoverage(Recommendation recommendation, AiRecommendResponse ai) {
+    AiRecommendResponse.CoverageAnalysis analysis = ai.coverageAnalysis();
+    if (analysis == null) {
+      return;
+    }
+    RecommendationCoverage coverage =
+        RecommendationCoverage.builder()
+            .requiredCount(analysis.requiredCount())
+            .currentCovered(analysis.currentCovered())
+            .nextActionsCovered(analysis.nextActionsCovered())
+            .expectedCovered(analysis.expectedCovered())
+            .gapTokens(joinTokens(analysis.gapTokens()))
+            .build();
+    recommendation.attachCoverage(coverage);
+
+    for (JobCoverage job : nullSafe(analysis.jobs())) {
+      if (job == null || job.jobId() == null) {
+        continue;
+      }
+      coverage.addJobCoverage(
+          RecommendationJobCoverage.builder()
+              .jobCode(job.jobId())
+              .jobName(job.jobName())
+              .requiredCount(job.requiredCount())
+              .currentCovered(job.currentCovered())
+              .expectedCovered(job.expectedCovered())
+              .missingTokens(joinTokens(job.missingTokens()))
+              .build());
+    }
+
+    for (CourseCoverageContribution contribution : nullSafe(analysis.courseContributions())) {
+      if (contribution == null || contribution.courseId() == null) {
+        continue;
+      }
+      coverage.addCourseContribution(
+          RecommendationCourseContribution.builder()
+              .courseCode(contribution.courseId())
+              .courseName(contribution.courseName())
+              .contributionPercent(percent(contribution.contributionRatio()))
+              .build());
+    }
+
+    int order = 0;
+    for (NextActionSuggestion action : nullSafe(analysis.nextActions())) {
+      if (action == null || action.courseId() == null) {
+        continue;
+      }
+      coverage.addNextAction(
+          RecommendationNextAction.builder()
+              .orderIndex(order++)
+              .courseCode(action.courseId())
+              .courseName(action.courseName())
+              .contributionPercent(percent(action.contributionRatio()))
+              .message(action.message())
+              .build());
+    }
+  }
+
+  private static String joinTokens(List<String> tokens) {
+    if (tokens == null || tokens.isEmpty()) {
+      return null;
+    }
+    return String.join("\n", tokens);
   }
 
   private void addJobs(Recommendation recommendation, AiRecommendResponse ai) {

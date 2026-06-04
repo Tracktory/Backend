@@ -16,6 +16,8 @@ public enum ErrorCode {
   ONBOARDING_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 온보딩이 완료된 사용자입니다."),
   SUBJECT_ALREADY_COMPLETED(HttpStatus.CONFLICT, "이미 이수 처리된 과목입니다."),
   ONBOARDING_NOT_FOUND(HttpStatus.NOT_FOUND, "온보딩 정보를 찾을 수 없습니다. 먼저 온보딩을 완료해주세요."),
+  RECOMMENDATION_NOT_FOUND(HttpStatus.NOT_FOUND, "활성 추천 결과가 없습니다. 먼저 추천을 생성해주세요."),
+  INVALID_ANCHOR_JOB(HttpStatus.BAD_REQUEST, "기준 직무가 추천 직무 목록에 없습니다."),
   AI_RELAY_ERROR(HttpStatus.BAD_GATEWAY, "추천 생성 중 AI 서버 오류가 발생했습니다.");
 
   private final HttpStatus httpStatus;
