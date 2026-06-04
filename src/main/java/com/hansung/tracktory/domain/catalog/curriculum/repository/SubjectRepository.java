@@ -9,7 +9,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface SubjectRepository extends JpaRepository<Subject, Long> {
   Optional<Subject> findByCode(String code);
 
-  Optional<Subject> findByName(String name);
+  Optional<Subject> findFirstByNameOrderByIdAsc(String name);
 
   boolean existsByCode(String code);
 

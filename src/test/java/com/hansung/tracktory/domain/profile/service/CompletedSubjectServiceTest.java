@@ -45,7 +45,7 @@ class CompletedSubjectServiceTest {
   void add_success_returnsSavedRow() { // 정상: 저장 후 id/과목/학년/학기 반환
     Subject subject = mock(Subject.class);
     given(subject.getId()).willReturn(142L);
-    given(subjectRepository.findByName("자료구조")).willReturn(Optional.of(subject));
+    given(subjectRepository.findFirstByNameOrderByIdAsc("자료구조")).willReturn(Optional.of(subject));
     given(userCompletedSubjectRepository.existsByUserIdAndSubjectId(1L, 142L)).willReturn(false);
     given(userRepository.getReferenceById(1L)).willReturn(user);
 
@@ -64,7 +64,7 @@ class CompletedSubjectServiceTest {
 
   @Test
   void add_subjectNotFound_throws422() { // 없는 과목 이름이면 422
-    given(subjectRepository.findByName("없는과목")).willReturn(Optional.empty());
+    given(subjectRepository.findFirstByNameOrderByIdAsc("없는과목")).willReturn(Optional.empty());
 
     assertThatThrownBy(() -> service.add(1L, addRequest("없는과목", 1, 1)))
         .isInstanceOf(BusinessException.class)
@@ -76,10 +76,29 @@ class CompletedSubjectServiceTest {
   }
 
   @Test
+  void add_duplicateName_picksFirstSubject() { // 동명 과목이 여러 개여도 첫 번째 과목으로 정상 추가
+    Subject first = mock(Subject.class);
+    given(first.getId()).willReturn(100L);
+    // 카탈로그에 동명 과목이 여러 건 있어도 repository 가 id 오름차순 첫 과목만 반환
+    given(subjectRepository.findFirstByNameOrderByIdAsc("데이터베이스")).willReturn(Optional.of(first));
+    given(userCompletedSubjectRepository.existsByUserIdAndSubjectId(1L, 100L)).willReturn(false);
+    given(userRepository.getReferenceById(1L)).willReturn(user);
+
+    UserCompletedSubject saved = UserCompletedSubject.of(user, first, 1, 1);
+    ReflectionTestUtils.setField(saved, "id", 9L);
+    given(userCompletedSubjectRepository.save(any())).willReturn(saved);
+
+    CompletedSubjectResponse result = service.add(1L, addRequest("데이터베이스", 1, 1));
+
+    assertThat(result.subjectId()).isEqualTo(100L);
+    verify(eventPublisher).publishEvent(new CompletedSubjectsChangedEvent(1L));
+  }
+
+  @Test
   void add_duplicate_throws409() { // 이미 이수한 과목이면 409
     Subject subject = mock(Subject.class);
     given(subject.getId()).willReturn(142L);
-    given(subjectRepository.findByName("자료구조")).willReturn(Optional.of(subject));
+    given(subjectRepository.findFirstByNameOrderByIdAsc("자료구조")).willReturn(Optional.of(subject));
     given(userCompletedSubjectRepository.existsByUserIdAndSubjectId(1L, 142L)).willReturn(true);
 
     assertThatThrownBy(() -> service.add(1L, addRequest("자료구조", 2, 1)))
