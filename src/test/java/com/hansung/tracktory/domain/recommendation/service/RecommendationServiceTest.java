@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import com.hansung.tracktory.domain.catalog.career.entity.Job;
@@ -16,6 +17,7 @@ import com.hansung.tracktory.domain.catalog.curriculum.repository.SubjectReposit
 import com.hansung.tracktory.domain.catalog.organization.entity.Track;
 import com.hansung.tracktory.domain.catalog.organization.repository.TrackRepository;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendClient;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendRequest;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.CourseCoverageContribution;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.CoverageAnalysis;
@@ -245,6 +247,58 @@ class RecommendationServiceTest {
   }
 
   @Test
+  void generate_differentUserTracks_sendsDifferentCurrentTracksToAi() {
+    OnboardingProfileSnapshot bigdataUser =
+        sampleProfile(1L, List.of("BIGDATA", "WEB"), List.of("W080001"));
+    OnboardingProfileSnapshot designUser =
+        sampleProfile(2L, List.of("MEDIA", "VR"), List.of("CTA0014"));
+
+    given(onboardingProfileReader.read(1L)).willReturn(Optional.of(bigdataUser));
+    given(onboardingProfileReader.read(2L)).willReturn(Optional.of(designUser));
+    given(aiRecommendClient.generate(any())).willReturn(emptyAiResponse());
+    given(userRepository.findById(1L)).willReturn(Optional.of(sampleUser()));
+    given(userRepository.findById(2L)).willReturn(Optional.of(sampleUser()));
+    given(recommendationRepository.findByUser_IdAndStatus(1L, RecommendationStatus.ACTIVE))
+        .willReturn(List.of());
+    given(recommendationRepository.findByUser_IdAndStatus(2L, RecommendationStatus.ACTIVE))
+        .willReturn(List.of());
+    given(recommendationRepository.save(any(Recommendation.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+    given(recommendationAssembler.assemble(any(Recommendation.class), any()))
+        .willReturn(sentinelResponse());
+
+    recommendationService.generate(1L, true);
+    recommendationService.generate(2L, true);
+
+    ArgumentCaptor<AiRecommendRequest> captor = ArgumentCaptor.forClass(AiRecommendRequest.class);
+    verify(aiRecommendClient, times(2)).generate(captor.capture());
+
+    assertThat(captor.getAllValues())
+        .extracting(AiRecommendRequest::currentTracks)
+        .containsExactly(List.of("BIGDATA", "WEB"), List.of("MEDIA", "VR"));
+  }
+
+  @Test
+  void generate_profileWithoutTracks_sendsEmptyCurrentTracksToAi() {
+    OnboardingProfileSnapshot profile = sampleProfile(USER_ID, List.of(), List.of("W080001"));
+    given(onboardingProfileReader.read(USER_ID)).willReturn(Optional.of(profile));
+    given(aiRecommendClient.generate(any())).willReturn(emptyAiResponse());
+    given(userRepository.findById(USER_ID)).willReturn(Optional.of(sampleUser()));
+    given(recommendationRepository.findByUser_IdAndStatus(USER_ID, RecommendationStatus.ACTIVE))
+        .willReturn(List.of());
+    given(recommendationRepository.save(any(Recommendation.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+    given(recommendationAssembler.assemble(any(Recommendation.class), eq(profile)))
+        .willReturn(sentinelResponse());
+
+    recommendationService.generate(USER_ID, true);
+
+    ArgumentCaptor<AiRecommendRequest> captor = ArgumentCaptor.forClass(AiRecommendRequest.class);
+    verify(aiRecommendClient).generate(captor.capture());
+    assertThat(captor.getValue().currentTracks()).isEmpty();
+  }
+
+  @Test
   void generate_jobsFoldingToSameCatalogCode_dedupedToSingleRecommendedJob() {
     OnboardingProfileSnapshot profile = sampleProfile();
     // AI 서버가 세분화 직무를 같은 카탈로그 코드(DE)로 fold 한 응답 — (recommendation_id, job_id) 유니크 제약 회귀 가드.
@@ -375,19 +429,24 @@ class RecommendationServiceTest {
   }
 
   private static OnboardingProfileSnapshot sampleProfile() {
+    return sampleProfile(USER_ID, List.of("BIGDATA", "WEB"), List.of("W080001"));
+  }
+
+  private static OnboardingProfileSnapshot sampleProfile(
+      Long userId, List<String> trackCodes, List<String> completedCourseCodes) {
     return new OnboardingProfileSnapshot(
-        USER_ID,
+        userId,
         2023,
         "IT공과대학",
         "컴퓨터공학부",
         3,
-        List.of("BIGDATA", "WEB"),
+        trackCodes,
         List.of("IT/인터넷"),
         List.of("앱"),
         List.of("성장성"),
         List.of("대기업"),
         List.of(),
-        List.of(new CompletedCourse("W080001", 1, 1)));
+        completedCourseCodes.stream().map(code -> new CompletedCourse(code, 1, 1)).toList());
   }
 
   private static User sampleUser() {
@@ -456,5 +515,9 @@ class RecommendationServiceTest {
         roadmap,
         coverage,
         explanation);
+  }
+
+  private static AiRecommendResponse emptyAiResponse() {
+    return new AiRecommendResponse(List.of(), List.of(), List.of(), null, null, null);
   }
 }
