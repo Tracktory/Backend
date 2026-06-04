@@ -23,6 +23,7 @@ import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.Explan
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.ExplanationSection;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.JobCandidate;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.JobCoverage;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.JobRationale;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.NextActionSuggestion;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RankedCombo;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.Roadmap;
@@ -30,6 +31,7 @@ import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.Roadma
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RoadmapStage;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.SemesterPlan;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.TrackCombo;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.TrackRationale;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse;
 import com.hansung.tracktory.domain.recommendation.entity.Recommendation;
 import com.hansung.tracktory.domain.recommendation.entity.RecommendationStatus;
@@ -43,6 +45,7 @@ import com.hansung.tracktory.domain.user.repository.UserRepository;
 import com.hansung.tracktory.global.exception.BusinessException;
 import com.hansung.tracktory.global.exception.ErrorCode;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -212,6 +215,110 @@ class RecommendationServiceTest {
     assertThat(saved.getCoverage().getCourseContributions())
         .singleElement()
         .satisfies(cc -> assertThat(cc.getCourseCode()).isEqualTo("os"));
+  }
+
+  @Test
+  void generate_perItemRationales_boundIndividuallyWithAreaFallback() {
+    OnboardingProfileSnapshot profile = sampleProfile();
+
+    AiRecommendResponse.Track bigdata =
+        new AiRecommendResponse.Track("c", "d", "BIGDATA", "빅데이터트랙");
+    AiRecommendResponse.Track web = new AiRecommendResponse.Track("c", "d", "WEB", "웹공학트랙");
+    AiRecommendResponse.Track mobile =
+        new AiRecommendResponse.Track("c", "d", "MOBILE", "모바일소프트웨어트랙");
+    RankedCombo primary =
+        new RankedCombo(new TrackCombo(bigdata, web, "BIGDATA+WEB"), 0.85, "primary", 1);
+    RankedCombo secondary =
+        new RankedCombo(new TrackCombo(mobile, bigdata, "MOBILE+BIGDATA"), 0.6, "cross_college", 2);
+
+    // 직무: be_dev/fe_dev 는 개별 근거 보유, de 는 누락 → 영역(jobs) 단락으로 폴백.
+    // 트랙: 주 조합은 combo/A/B 근거 모두 보유, 보조 조합(MOBILE)은 A 근거 보유. 영역(tracks) 단락은 폴백용.
+    Explanation explanation =
+        new Explanation(
+            "전체 설명",
+            List.of(
+                new ExplanationSection("jobs", "직무 영역 폴백"),
+                new ExplanationSection("tracks", "트랙 영역 폴백")),
+            List.of(
+                new JobRationale("be_dev", "백엔드 직무 개별 근거"),
+                new JobRationale("fe_dev", "프론트 직무 개별 근거")),
+            List.of(
+                new TrackRationale("BIGDATA+WEB", "주 조합 시너지 근거", "빅데이터 트랙 근거", "웹공학 트랙 근거"),
+                new TrackRationale("MOBILE+BIGDATA", "보조 조합 근거", "모바일 트랙 근거", "빅데이터(보조) 근거")),
+            List.of(),
+            List.of());
+    AiRecommendResponse ai =
+        new AiRecommendResponse(
+            List.of(
+                new JobCandidate("be_dev", "백엔드 개발자", List.of(), List.of(), 0.9, 0.8, false),
+                new JobCandidate("fe_dev", "프론트 개발자", List.of(), List.of(), 0.8, 0.7, false),
+                new JobCandidate("de", "데이터 엔지니어", List.of(), List.of(), 0.7, 0.6, false)),
+            List.of(primary),
+            List.of(secondary),
+            null,
+            null,
+            explanation);
+
+    given(onboardingProfileReader.read(USER_ID)).willReturn(Optional.of(profile));
+    given(
+            recommendationRepository.findFirstByUser_IdAndStatusOrderByCreatedAtDesc(
+                USER_ID, RecommendationStatus.ACTIVE))
+        .willReturn(Optional.empty());
+    given(aiRecommendClient.generate(any())).willReturn(ai);
+    given(userRepository.findById(USER_ID)).willReturn(Optional.of(sampleUser()));
+    given(recommendationRepository.findByUser_IdAndStatus(USER_ID, RecommendationStatus.ACTIVE))
+        .willReturn(List.of());
+    given(jobRepository.findByCode("be_dev"))
+        .willReturn(Optional.of(Job.builder().code("be_dev").name("백엔드 개발자").build()));
+    given(jobRepository.findByCode("fe_dev"))
+        .willReturn(Optional.of(Job.builder().code("fe_dev").name("프론트 개발자").build()));
+    given(jobRepository.findByCode("de"))
+        .willReturn(Optional.of(Job.builder().code("de").name("데이터 엔지니어").build()));
+    given(trackRepository.findByCode("BIGDATA"))
+        .willReturn(Optional.of(Track.builder().code("BIGDATA").name("빅데이터트랙").build()));
+    given(trackRepository.findByCode("WEB"))
+        .willReturn(Optional.of(Track.builder().code("WEB").name("웹공학트랙").build()));
+    given(trackRepository.findByCode("MOBILE"))
+        .willReturn(Optional.of(Track.builder().code("MOBILE").name("모바일소프트웨어트랙").build()));
+    given(recommendationRepository.save(any(Recommendation.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+    given(recommendationAssembler.assemble(any(Recommendation.class), eq(profile)))
+        .willReturn(sentinelResponse());
+
+    recommendationService.generate(USER_ID, false);
+
+    ArgumentCaptor<Recommendation> captor = ArgumentCaptor.forClass(Recommendation.class);
+    verify(recommendationRepository).save(captor.capture());
+    Recommendation saved = captor.getValue();
+
+    // 직무: 항목별 개별 근거가 서로 다르게 바인딩되고, 근거 누락 직무는 영역 단락으로 폴백한다.
+    Map<String, String> jobReasonByCode =
+        saved.getRecommendedJobs().stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    j -> j.getJob().getCode(),
+                    com.hansung.tracktory.domain.recommendation.entity.RecommendedJob
+                        ::getReasoning));
+    assertThat(jobReasonByCode.get("be_dev")).isEqualTo("백엔드 직무 개별 근거");
+    assertThat(jobReasonByCode.get("fe_dev")).isEqualTo("프론트 직무 개별 근거");
+    assertThat(jobReasonByCode.get("de")).isEqualTo("직무 영역 폴백");
+    assertThat(jobReasonByCode.values()).doesNotHaveDuplicates();
+
+    // 트랙 조합 전체 근거(시너지)는 개별 트랙 근거와 구분된다.
+    assertThat(saved.getTrackCombinationReasoning()).isEqualTo("주 조합 시너지 근거");
+
+    // 트랙: 같은 조합 안에서 트랙별(A/B)로 다른 근거가 바인딩된다.
+    Map<String, String> trackReasonByCode =
+        saved.getRecommendedTracks().stream()
+            .collect(
+                java.util.stream.Collectors.toMap(
+                    t -> t.getTrack().getCode(), RecommendedTrack::getReasoning));
+    assertThat(trackReasonByCode.get("BIGDATA")).isEqualTo("빅데이터 트랙 근거");
+    assertThat(trackReasonByCode.get("WEB")).isEqualTo("웹공학 트랙 근거");
+    assertThat(trackReasonByCode.get("MOBILE")).isEqualTo("모바일 트랙 근거");
+    assertThat(trackReasonByCode.values()).doesNotHaveDuplicates();
+    // 개별 트랙 근거는 조합 전체 근거와도 구분된다.
+    assertThat(trackReasonByCode.values()).doesNotContain(saved.getTrackCombinationReasoning());
   }
 
   @Test
@@ -421,6 +528,7 @@ class RecommendationServiceTest {
     SemesterPlan plan = new SemesterPlan(5, 3, List.of(course), 3, false, false);
     Roadmap roadmap = new Roadmap(List.of(stage), List.of(plan), "BIGDATA+WEB");
 
+    // 항목별 근거(job_rationales/track_rationales)를 비워 영역 단락 폴백 경로를 검증한다.
     Explanation explanation =
         new Explanation(
             "전체 설명",
@@ -428,6 +536,8 @@ class RecommendationServiceTest {
                 new ExplanationSection("jobs", "직무 설명"),
                 new ExplanationSection("tracks", "트랙 설명"),
                 new ExplanationSection("roadmap", "로드맵 설명")),
+            List.of(),
+            List.of(),
             List.of(),
             List.of());
 

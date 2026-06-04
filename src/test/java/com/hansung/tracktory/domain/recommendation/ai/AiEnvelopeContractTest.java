@@ -59,6 +59,10 @@ class AiEnvelopeContractTest {
             "explanation": {
               "text":"전체 설명",
               "sections":[{"topic":"tracks","body":"트랙 설명"}],
+              "job_rationales":[{"job_id":"ml_engineer","rationale":"머신러닝 직무 개별 근거"}],
+              "track_rationales":[{"combo_key":"빅데이터트랙|AIㆍ소프트웨어학과",
+                 "combo_rationale":"조합 시너지 근거","track_a_rationale":"빅데이터 트랙 근거",
+                 "track_b_rationale":"AI 트랙 근거"}],
               "semester_subtitles":[{"semester":3,"subtitle":"기초 다지기"}],
               "course_flows":[{"course_id":"V020002","flow":"기초→응용"}]
             }
@@ -99,5 +103,17 @@ class AiEnvelopeContractTest {
 
     assertThat(data.explanation().sections().get(0).topic()).isEqualTo("tracks");
     assertThat(data.explanation().semesterSubtitles().get(0).semester()).isEqualTo(3);
+
+    // 항목별 개별 근거(job_rationales / track_rationales)의 snake_case 매핑 가드 — 직무는 job_id, 트랙은 combo_key 로
+    // 바인딩된다.
+    AiRecommendResponse.JobRationale jobRationale = data.explanation().jobRationales().get(0);
+    assertThat(jobRationale.jobId()).isEqualTo("ml_engineer");
+    assertThat(jobRationale.rationale()).isEqualTo("머신러닝 직무 개별 근거");
+
+    AiRecommendResponse.TrackRationale trackRationale = data.explanation().trackRationales().get(0);
+    assertThat(trackRationale.comboKey()).isEqualTo("빅데이터트랙|AIㆍ소프트웨어학과");
+    assertThat(trackRationale.comboRationale()).isEqualTo("조합 시너지 근거");
+    assertThat(trackRationale.trackARationale()).isEqualTo("빅데이터 트랙 근거");
+    assertThat(trackRationale.trackBRationale()).isEqualTo("AI 트랙 근거");
   }
 }
