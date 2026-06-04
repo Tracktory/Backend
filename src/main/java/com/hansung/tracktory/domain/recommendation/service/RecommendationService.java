@@ -11,11 +11,13 @@ import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.CourseCoverageContribution;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.Explanation;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.JobCoverage;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.JobRationale;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.NextActionSuggestion;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RankedCombo;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RoadmapCourse;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RoadmapStage;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.SemesterPlan;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.TrackRationale;
 import com.hansung.tracktory.domain.recommendation.dto.RecommendationResponse;
 import com.hansung.tracktory.domain.recommendation.entity.Recommendation;
 import com.hansung.tracktory.domain.recommendation.entity.RecommendationCourseContribution;
@@ -127,7 +129,7 @@ public class RecommendationService {
             .triggerSource(RecommendationTriggerSource.MANUAL)
             .trackCombinationScore(topCombo == null ? null : percent(topCombo.synergyScore()))
             .trackCombinationSummary(comboSummary(topCombo))
-            .trackCombinationReasoning(explanationBody(ai.explanation(), "tracks"))
+            .trackCombinationReasoning(comboReasoning(ai.explanation(), topCombo))
             .build();
 
     addJobs(recommendation, ai);
@@ -207,13 +209,15 @@ public class RecommendationService {
   private void addJobs(Recommendation recommendation, AiRecommendResponse ai) {
     // AI 서버가 세분화 직무를 카탈로그 코드로 fold 하면 서로 다른 직무가 같은 코드로 겹칠 수 있다.
     // (recommendation_id, job_id) 유니크 제약을 지키도록 코드 기준으로 중복을 제거한다(match_score 내림차순 가정 → 첫 건 채택).
-    // AI 는 영역(jobs) 단위 설명만 주므로 같은 영역 문구를 각 직무 항목 근거로 채운다.
-    String reasoning = explanationBody(ai.explanation(), "jobs");
+    // AI 가 직무 한 건 단위 개별 근거(job_rationales)를 주면 그것을, 없으면 영역(jobs) 단락으로 폴백한다.
+    Map<String, String> rationaleByJobId = jobRationaleIndex(ai.explanation());
+    String areaReasoning = explanationBody(ai.explanation(), "jobs");
     Set<String> seen = new HashSet<>();
     for (AiRecommendResponse.JobCandidate job : nullSafe(ai.jobs())) {
       if (job == null || job.jobId() == null || !seen.add(job.jobId())) {
         continue;
       }
+      String reasoning = firstNonBlank(rationaleByJobId.get(job.jobId()), areaReasoning);
       jobRepository
           .findByCode(job.jobId())
           .ifPresent(
@@ -229,17 +233,24 @@ public class RecommendationService {
   }
 
   private void addTracks(Recommendation recommendation, AiRecommendResponse ai, RankedCombo top) {
-    // AI 는 영역(tracks) 단위 설명만 주므로 같은 영역 문구를 각 트랙 항목 근거로 채운다.
-    String reasoning = explanationBody(ai.explanation(), "tracks");
+    // AI 가 트랙 조합 한 건 단위 개별 근거(track_rationales)를 주면 조합 안에서 트랙별(A/B)로 바인딩하고,
+    // 없으면 영역(tracks) 단락으로 폴백한다.
+    Map<String, TrackRationale> rationaleByComboKey = trackRationaleIndex(ai.explanation());
+    String areaReasoning = explanationBody(ai.explanation(), "tracks");
     Set<String> seen = new HashSet<>();
     if (top != null && top.combo() != null) {
-      for (AiRecommendResponse.Track aiTrack : pair(top)) {
+      List<AiRecommendResponse.Track> pair = pair(top);
+      for (int i = 0; i < pair.size(); i++) {
+        AiRecommendResponse.Track aiTrack = pair.get(i);
         if (aiTrack == null || !seen.add(aiTrack.trackId())) {
           continue;
         }
-        Optional<Track> track = findCatalogTrack(aiTrack.trackId());
-        track.ifPresent(
-            t -> addTrack(recommendation, t, percent(top.synergyScore()), true, false, reasoning));
+        String reasoning = trackReasoning(rationaleByComboKey, top, i, areaReasoning);
+        findCatalogTrack(aiTrack.trackId())
+            .ifPresent(
+                t ->
+                    addTrack(
+                        recommendation, t, percent(top.synergyScore()), true, false, reasoning));
       }
     }
 
@@ -251,7 +262,9 @@ public class RecommendationService {
         continue;
       }
       boolean crossCombination = isCrossCollege(combo);
-      for (AiRecommendResponse.Track aiTrack : pair(combo)) {
+      List<AiRecommendResponse.Track> pair = pair(combo);
+      for (int i = 0; i < pair.size(); i++) {
+        AiRecommendResponse.Track aiTrack = pair.get(i);
         if (secondaryCount >= MAX_SECONDARY_TRACKS) {
           break;
         }
@@ -262,6 +275,7 @@ public class RecommendationService {
         if (track.isEmpty()) {
           continue;
         }
+        String reasoning = trackReasoning(rationaleByComboKey, combo, i, areaReasoning);
         addTrack(
             recommendation,
             track.get(),
@@ -272,6 +286,66 @@ public class RecommendationService {
         secondaryCount++;
       }
     }
+  }
+
+  // 조합 한 건의 개별 근거에서 트랙 위치(0=트랙A, 1=트랙B)에 해당하는 근거를 고른다. 항목별 근거가 없거나 비면 영역 단락으로 폴백한다.
+  private static String trackReasoning(
+      Map<String, TrackRationale> rationaleByComboKey,
+      RankedCombo combo,
+      int trackIndex,
+      String areaReasoning) {
+    TrackRationale rationale = rationaleByComboKey.get(comboKey(combo));
+    if (rationale == null) {
+      return areaReasoning;
+    }
+    String perTrack = trackIndex == 0 ? rationale.trackARationale() : rationale.trackBRationale();
+    return firstNonBlank(perTrack, areaReasoning);
+  }
+
+  // 최상위 조합 단위 근거(시너지)를 고른다 — 개별 트랙 근거와 구분되는 조합 전체 근거. 없으면 영역(tracks) 단락으로 폴백한다.
+  private static String comboReasoning(Explanation explanation, RankedCombo top) {
+    String areaReasoning = explanationBody(explanation, "tracks");
+    if (top == null || top.combo() == null) {
+      return areaReasoning;
+    }
+    TrackRationale rationale = trackRationaleIndex(explanation).get(comboKey(top));
+    return rationale == null
+        ? areaReasoning
+        : firstNonBlank(rationale.comboRationale(), areaReasoning);
+  }
+
+  private static String comboKey(RankedCombo combo) {
+    return combo == null || combo.combo() == null ? null : combo.combo().comboKey();
+  }
+
+  private static Map<String, String> jobRationaleIndex(Explanation explanation) {
+    Map<String, String> index = new HashMap<>();
+    if (explanation == null) {
+      return index;
+    }
+    for (JobRationale rationale : nullSafe(explanation.jobRationales())) {
+      if (rationale != null && rationale.jobId() != null) {
+        index.putIfAbsent(rationale.jobId(), rationale.rationale());
+      }
+    }
+    return index;
+  }
+
+  private static Map<String, TrackRationale> trackRationaleIndex(Explanation explanation) {
+    Map<String, TrackRationale> index = new HashMap<>();
+    if (explanation == null) {
+      return index;
+    }
+    for (TrackRationale rationale : nullSafe(explanation.trackRationales())) {
+      if (rationale != null && rationale.comboKey() != null) {
+        index.putIfAbsent(rationale.comboKey(), rationale);
+      }
+    }
+    return index;
+  }
+
+  private static String firstNonBlank(String preferred, String fallback) {
+    return preferred != null && !preferred.isBlank() ? preferred : fallback;
   }
 
   // AI 카탈로그와 본 백엔드 카탈로그가 가운뎃점을 서로 다른 유니코드로 적재해(U+00B7 vs U+318D) 가운뎃점을 포함한
