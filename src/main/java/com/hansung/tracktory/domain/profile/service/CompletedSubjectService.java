@@ -31,7 +31,7 @@ public class CompletedSubjectService {
   public CompletedSubjectResponse add(Long userId, CompletedSubjectAddRequest request) {
     Subject subject =
         subjectRepository
-            .findByName(request.getSubjectName())
+            .findFirstByNameOrderByIdAsc(request.getSubjectName())
             .orElseThrow(
                 () ->
                     new BusinessException(ErrorCode.VALIDATION_FAILED, "subjectName 이 존재하지 않습니다."));
