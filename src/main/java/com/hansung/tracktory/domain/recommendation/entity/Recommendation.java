@@ -67,6 +67,13 @@ public class Recommendation extends BaseEntity {
       fetch = FetchType.LAZY)
   private Roadmap roadmap;
 
+  @OneToOne(
+      mappedBy = "recommendation",
+      cascade = CascadeType.ALL,
+      orphanRemoval = true,
+      fetch = FetchType.LAZY)
+  private RecommendationCoverage coverage;
+
   @Builder
   public Recommendation(
       User user,
@@ -99,6 +106,12 @@ public class Recommendation extends BaseEntity {
   public void attachRoadmap(Roadmap newRoadmap) {
     this.roadmap = newRoadmap;
     newRoadmap.assignTo(this);
+  }
+
+  /** 역량 충족도 분석 1:1 자식을 연결하고 양방향 연관을 맞춘다. */
+  public void attachCoverage(RecommendationCoverage newCoverage) {
+    this.coverage = newCoverage;
+    newCoverage.assignTo(this);
   }
 
   /** 새 추천으로 대체되었음을 표시한다 (메인 노출 제외, 이력으로만 조회). */

@@ -17,9 +17,13 @@ import com.hansung.tracktory.domain.catalog.organization.entity.Track;
 import com.hansung.tracktory.domain.catalog.organization.repository.TrackRepository;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendClient;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.CourseCoverageContribution;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.CoverageAnalysis;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.Explanation;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.ExplanationSection;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.JobCandidate;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.JobCoverage;
+import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.NextActionSuggestion;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RankedCombo;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.Roadmap;
 import com.hansung.tracktory.domain.recommendation.ai.AiRecommendResponse.RoadmapCourse;
@@ -182,6 +186,32 @@ class RecommendationServiceTest {
     assertThat(semester.getItems()).hasSize(1);
     assertThat(semester.getItems().get(0).getSubject().getCode()).isEqualTo("W080001");
     assertThat(semester.getItems().get(0).getScore()).isEqualTo(60);
+
+    // 역량 충족도 스냅샷: 카운트는 그대로 보존(비율 재계산 X), next_actions_covered 합집합 값도 그대로 옮긴다.
+    assertThat(saved.getCoverage()).isNotNull();
+    assertThat(saved.getCoverage().getRequiredCount()).isEqualTo(10);
+    assertThat(saved.getCoverage().getCurrentCovered()).isEqualTo(4);
+    assertThat(saved.getCoverage().getNextActionsCovered()).isEqualTo(6);
+    assertThat(saved.getCoverage().getExpectedCovered()).isEqualTo(8);
+    assertThat(saved.getCoverage().getGapTokens()).isEqualTo("Kafka\nRedis");
+    assertThat(saved.getCoverage().getJobCoverages())
+        .singleElement()
+        .satisfies(
+            jc -> {
+              assertThat(jc.getJobCode()).isEqualTo("be_dev");
+              assertThat(jc.getCurrentCovered()).isEqualTo(4);
+              assertThat(jc.getMissingTokens()).isEqualTo("Kafka\nRedis");
+            });
+    assertThat(saved.getCoverage().getNextActions())
+        .singleElement()
+        .satisfies(
+            na -> {
+              assertThat(na.getCourseCode()).isEqualTo("db");
+              assertThat(na.getContributionPercent()).isEqualTo(20);
+            });
+    assertThat(saved.getCoverage().getCourseContributions())
+        .singleElement()
+        .satisfies(cc -> assertThat(cc.getCourseCode()).isEqualTo("os"));
   }
 
   @Test
@@ -227,6 +257,7 @@ class RecommendationServiceTest {
             List.of(),
             List.of(),
             null,
+            null,
             null);
 
     given(onboardingProfileReader.read(USER_ID)).willReturn(Optional.of(profile));
@@ -266,7 +297,7 @@ class RecommendationServiceTest {
     RankedCombo secondaryNull =
         new RankedCombo(new TrackCombo(mobile, null, "MOBILE"), 0.5, null, 2);
     AiRecommendResponse ai =
-        new AiRecommendResponse(List.of(), List.of(), List.of(secondaryNull), null, null);
+        new AiRecommendResponse(List.of(), List.of(), List.of(secondaryNull), null, null, null);
 
     given(onboardingProfileReader.read(USER_ID)).willReturn(Optional.of(profile));
     given(
@@ -309,7 +340,7 @@ class RecommendationServiceTest {
     RankedCombo secondary =
         new RankedCombo(new TrackCombo(vr, null, aiCode), 0.6, "cross_college", 2);
     AiRecommendResponse ai =
-        new AiRecommendResponse(List.of(), List.of(), List.of(secondary), null, null);
+        new AiRecommendResponse(List.of(), List.of(), List.of(secondary), null, null, null);
 
     given(onboardingProfileReader.read(USER_ID)).willReturn(Optional.of(profile));
     given(
@@ -400,6 +431,22 @@ class RecommendationServiceTest {
             List.of(),
             List.of());
 
+    CoverageAnalysis coverage =
+        new CoverageAnalysis(
+            10,
+            4,
+            8,
+            0.4,
+            0.8,
+            6,
+            0.6,
+            List.of(
+                new JobCoverage(
+                    "be_dev", "백엔드 개발자", 10, 4, 8, 0.4, 0.8, List.of("Kafka", "Redis"))),
+            List.of(new CourseCoverageContribution("os", "운영체제", List.of("OS"), 0.1)),
+            List.of(new NextActionSuggestion("db", "데이터베이스", 0.2, "데이터베이스를 들으면 충족도가 오릅니다")),
+            List.of("Kafka", "Redis"));
+
     return new AiRecommendResponse(
         List.of(
             new JobCandidate(
@@ -407,6 +454,7 @@ class RecommendationServiceTest {
         List.of(primary),
         List.of(secondaryCross, secondaryMmr),
         roadmap,
+        coverage,
         explanation);
   }
 }

@@ -16,6 +16,7 @@ public record AiRecommendResponse(
     List<RankedCombo> primaryCombos,
     List<RankedCombo> secondaryCombos,
     Roadmap roadmap,
+    CoverageAnalysis coverageAnalysis,
     Explanation explanation) {
 
   /** 추천 직무 단건. match_score 는 [0,1] 적합도. */
@@ -72,6 +73,50 @@ public record AiRecommendResponse(
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Roadmap(
       List<RoadmapStage> stages, List<SemesterPlan> semesters, String derivedFromComboKey) {}
+
+  /** 분야(추천 직무)별 현재/예상 역량 충족도. ratio 는 [0,1], count 는 표기 정합 후 토큰 수. */
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record JobCoverage(
+      String jobId,
+      String jobName,
+      int requiredCount,
+      int currentCovered,
+      int expectedCovered,
+      double currentRatio,
+      double expectedRatio,
+      List<String> missingTokens) {}
+
+  /** 잔여(추천) 과목 한 건이 충족도에 더하는 독립 한계 기여. contribution_ratio 는 그 과목 단독 이수 시 증가분. */
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CourseCoverageContribution(
+      String courseId, String courseName, List<String> addedTokens, double contributionRatio) {}
+
+  /** 추천 기반 다음 액션 — 충족도를 가장 많이 올리는 과목 제안. */
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record NextActionSuggestion(
+      String courseId, String courseName, double contributionRatio, String message) {}
+
+  /**
+   * 추천 직무 요구 역량 대비 현재 → 예상 충족도 분석. next_actions_covered 는 다음 액션 shortlist 까지 이수 시 덮는 토큰의 합집합 수로,
+   * {@code current_covered <= next_actions_covered <= expected_covered} 를 만족한다.
+   */
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record CoverageAnalysis(
+      int requiredCount,
+      int currentCovered,
+      int expectedCovered,
+      double currentRatio,
+      double expectedRatio,
+      int nextActionsCovered,
+      double nextActionsRatio,
+      List<JobCoverage> jobs,
+      List<CourseCoverageContribution> courseContributions,
+      List<NextActionSuggestion> nextActions,
+      List<String> gapTokens) {}
 
   /** LLM 설명의 영역별 단락 — topic: jobs/tracks/roadmap. */
   @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)

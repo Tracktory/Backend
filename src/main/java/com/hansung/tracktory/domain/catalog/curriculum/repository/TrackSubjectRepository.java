@@ -14,4 +14,6 @@ public interface TrackSubjectRepository extends JpaRepository<TrackSubject, Long
   List<TrackSubject> findBySubjectIn(Collection<Subject> subjects);
 
   List<TrackSubject> findByTrackInAndType(Collection<Track> tracks, SubjectType type);
+
+  List<TrackSubject> findByTrackIn(Collection<Track> tracks);
 }
