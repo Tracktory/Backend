@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" role="img" aria-label="Spring 책임 흐름도: React Native 앱이 Spring Boot BFF 만 호출하고, Spring 이 검증한 사용자 컨텍스트를 내부 헤더로 FastAPI AI 중계 서버에 위임한다">
+  <style>
+    .label    { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif; }
+    .mono     { font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace; }
+    .title    { font-size: 19px; font-weight: 700; fill: #14181d; }
+    .sub      { font-size: 13px; fill: #5b6470; }
+    .card-t   { font-size: 14px; font-weight: 600; fill: #1a1d21; }
+    .card-s   { font-size: 12px; fill: #5b6470; }
+    .edge-t   { font-size: 12.5px; font-weight: 600; fill: #3a414b; }
+    .edge-s   { font-size: 11.5px; fill: #6b7480; }
+    .eyebrow  { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; fill: #8a93a0; }
+
+    .app      { fill: #e7f3ff; stroke: #0066cc; stroke-width: 2; }
+    .spring   { fill: #e6f5ec; stroke: #1f9d57; stroke-width: 2.5; }
+    .card     { fill: #ffffff; stroke: #bfe0cc; stroke-width: 1.5; }
+    .db       { fill: #fff6da; stroke: #d99a00; stroke-width: 2; }
+    .ai       { fill: #efe7ff; stroke: #7c3aed; stroke-width: 2.5; }
+    .pill     { fill: #ffffff; stroke: #cdb8f0; stroke-width: 1.5; }
+
+    .arrow    { stroke: #5b6470; stroke-width: 2; fill: none; }
+    .arrow-db { stroke: #d99a00; stroke-width: 2; fill: none; }
+    .ah       { fill: #5b6470; }
+    .ah-db    { fill: #d99a00; }
+    .guard    { fill: #fff5f6; stroke: #dc143c; stroke-width: 1.5; stroke-dasharray: 6 5; }
+    .guard-t  { font-size: 12px; font-weight: 600; fill: #c1123a; }
+
+    @media (prefers-color-scheme: dark) {
+      svg { background: transparent; }
+      .title  { fill: #f0f3f7; }
+      .sub    { fill: #9aa4b2; }
+      .card-t { fill: #e8ecf2; }
+      .card-s { fill: #97a1af; }
+      .edge-t { fill: #c5ccd6; }
+      .edge-s { fill: #8b95a3; }
+      .eyebrow{ fill: #707b8a; }
+
+      .app    { fill: #11293c; stroke: #4aa3ff; }
+      .spring { fill: #133121; stroke: #3fc07a; }
+      .card   { fill: #0f1a14; stroke: #2f6e48; }
+      .db     { fill: #2e2510; stroke: #e0a826; }
+      .ai     { fill: #211438; stroke: #a06bf5; }
+      .pill   { fill: #16101f; stroke: #6a4ca0; }
+
+      .arrow    { stroke: #8b95a3; }
+      .arrow-db { stroke: #e0a826; }
+      .ah       { fill: #8b95a3; }
+      .ah-db    { fill: #e0a826; }
+      .guard    { fill: #2a1418; stroke: #ff7a96; }
+      .guard-t  { fill: #ff8ea8; }
+    }
+  </style>
+
+  <!-- ====== React Native 앱 ====== -->
+  <rect class="app" x="300" y="34" width="360" height="72" rx="16"/>
+  <text class="label title" x="480" y="68" text-anchor="middle">React Native 앱</text>
+  <text class="label sub"   x="480" y="90" text-anchor="middle">유일한 앱-facing 진입점 · Spring API 만 호출</text>
+
+  <!-- app -> spring -->
+  <path class="arrow" d="M 480 106 L 480 168"/>
+  <path class="ah" d="M 480 178 l -6 -12 l 12 0 z"/>
+  <text class="label edge-t" x="496" y="134" text-anchor="start">HTTPS 요청</text>
+  <text class="label edge-s" x="496" y="151" text-anchor="start">JWT 기반 인증</text>
+
+  <!-- ====== Spring Boot (BFF) ====== -->
+  <rect class="spring" x="56" y="184" width="616" height="288" rx="20"/>
+  <text class="label eyebrow" x="84" y="216" text-anchor="start">APP-FACING BACKEND · BFF</text>
+  <text class="label title"   x="84" y="240" text-anchor="start">Spring Boot</text>
+  <text class="label sub"     x="84" y="262" text-anchor="start">인증 · 도메인 트랜잭션 · 게이트키퍼</text>
+
+  <!-- responsibility cards (2 x 2) -->
+  <rect class="card" x="84" y="284" width="270" height="78" rx="12"/>
+  <text class="label card-t" x="100" y="314" text-anchor="start">인증 · 인가</text>
+  <text class="label card-s" x="100" y="336" text-anchor="start">JWT 발급·검증, 사용자 컨텍스트</text>
+
+  <rect class="card" x="374" y="284" width="270" height="78" rx="12"/>
+  <text class="label card-t" x="390" y="314" text-anchor="start">프로필 · 온보딩 · 이수 과목</text>
+  <text class="label card-s" x="390" y="336" text-anchor="start">학년·트랙·관심사·기술스택 관리</text>
+
+  <rect class="card" x="84" y="374" width="270" height="78" rx="12"/>
+  <text class="label card-t" x="100" y="404" text-anchor="start">추천 생성 · 저장 · 리포트</text>
+  <text class="label card-s" x="100" y="426" text-anchor="start">AI 응답 영속화, 분석 리포트 조립</text>
+
+  <rect class="card" x="374" y="374" width="270" height="78" rx="12"/>
+  <text class="label card-t" x="390" y="404" text-anchor="start">카탈로그</text>
+  <text class="label card-s" x="390" y="426" text-anchor="start">단과대·트랙·과목·직무 정적 데이터</text>
+
+  <!-- ====== DB ====== -->
+  <g>
+    <path class="db" d="M 728 312 a 76 16 0 0 1 152 0 l 0 96 a 76 16 0 0 1 -152 0 z"/>
+    <path class="db" d="M 728 312 a 76 16 0 0 0 152 0" fill="none"/>
+  </g>
+  <text class="label card-t" x="804" y="352" text-anchor="middle">MySQL</text>
+  <text class="label card-s" x="804" y="372" text-anchor="middle">프로필 · 이수 과목</text>
+  <text class="label card-s" x="804" y="388" text-anchor="middle">추천 결과 영속화</text>
+
+  <!-- spring <-> db -->
+  <path class="arrow-db" d="M 672 360 L 722 360"/>
+  <path class="ah-db" d="M 728 360 l -12 -6 l 0 12 z"/>
+  <path class="arrow-db" d="M 728 372 L 678 372"/>
+  <path class="ah-db" d="M 672 372 l 12 -6 l 0 12 z"/>
+  <text class="label edge-s mono" x="700" y="350" text-anchor="middle">JPA</text>
+
+  <!-- spring -> fastapi (internal boundary) -->
+  <path class="arrow" d="M 364 472 L 364 560"/>
+  <path class="ah" d="M 364 570 l -6 -12 l 12 0 z"/>
+
+  <!-- internal boundary guard -->
+  <rect class="guard" x="392" y="486" width="372" height="64" rx="12"/>
+  <text class="label guard-t" x="408" y="510" text-anchor="start">내부 호출 경계 · 외부 미노출</text>
+  <text class="label edge-s mono" x="408" y="530" text-anchor="start">X-Internal-Token · X-User-Id</text>
+  <text class="label edge-s" x="408" y="545" text-anchor="start">검증된 사용자 컨텍스트만 헤더로 전달</text>
+
+  <!-- ====== FastAPI (AI 중계 서버) ====== -->
+  <rect class="ai" x="160" y="576" width="640" height="104" rx="20"/>
+  <text class="label eyebrow" x="184" y="606" text-anchor="start">INTERNAL AI RELAY · 외부 직접 호출 불가</text>
+  <text class="label title"   x="184" y="630" text-anchor="start">FastAPI — AI 중계 서버</text>
+
+  <rect class="pill" x="184" y="642" width="180" height="26" rx="13"/>
+  <text class="label card-s" x="274" y="659" text-anchor="middle">추천 그래프 실행</text>
+
+  <rect class="pill" x="374" y="642" width="120" height="26" rx="13"/>
+  <text class="label card-s" x="434" y="659" text-anchor="middle">챗봇</text>
+
+  <rect class="pill" x="504" y="642" width="140" height="26" rx="13"/>
+  <text class="label card-s" x="574" y="659" text-anchor="middle">직무 브리핑</text>
+</svg>
