@@ -1,6 +1,7 @@
 package com.hansung.tracktory.domain.recommendation.ai;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 import tools.jackson.databind.PropertyNamingStrategies;
 import tools.jackson.databind.annotation.JsonNaming;
@@ -133,12 +134,35 @@ public record AiRecommendResponse(
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record CourseFlow(String courseId, String flow) {}
 
-  /** LLM 자연어 설명 전체. */
+  /** 추천 직무 한 건의 개별 근거 — job_id 로 해당 직무 항목에 바인딩한다. */
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record JobRationale(String jobId, String rationale) {}
+
+  /** 추천 트랙 조합 한 건의 개별 근거 — combo_key 로 해당 조합 항목에 바인딩한다. 조합 전체 근거(시너지)와 각 트랙 자체 근거를 별도 필드로 구분한다. */
+  @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
+  @JsonIgnoreProperties(ignoreUnknown = true)
+  public record TrackRationale(
+      String comboKey,
+      String comboRationale,
+      // SnakeCaseStrategy 는 연속 대문자(A·R)를 합쳐 track_a_rationale 가 아닌 track_arationale 로 매핑하므로
+      // AI 와이어 필드명을 명시 고정한다(track_b 동일).
+      @JsonProperty("track_a_rationale") String trackARationale,
+      @JsonProperty("track_b_rationale") String trackBRationale) {}
+
+  /**
+   * LLM 자연어 설명 전체.
+   *
+   * <p>영역별 단락({@code sections})은 직무/트랙/로드맵 영역의 요약 근거를, 항목별 근거({@code jobRationales}/{@code
+   * trackRationales})는 직무 한 건·트랙 조합 한 건 단위의 개별 근거를 담는다. 항목별 리스트가 비면 영역 단락으로 폴백한다.
+   */
   @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
   @JsonIgnoreProperties(ignoreUnknown = true)
   public record Explanation(
       String text,
       List<ExplanationSection> sections,
+      List<JobRationale> jobRationales,
+      List<TrackRationale> trackRationales,
       List<SemesterSubtitle> semesterSubtitles,
       List<CourseFlow> courseFlows) {}
 }
